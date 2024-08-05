@@ -18,7 +18,6 @@ spec:
     type: RollingUpdate
   template:
     metadata:
-      creationTimestamp: null
       labels:
         app: pod-pruner
     spec:
@@ -40,5 +39,5 @@ spec:
               memory: 20Mi
       dnsPolicy: ClusterFirst
       securityContext: {}
-      serviceAccountName: pod-pruner-service-account
+      serviceAccountName: pod-pruner
       terminationGracePeriodSeconds: 30
