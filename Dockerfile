@@ -7,5 +7,11 @@ RUN go build pruner.go
 
 # Application
 FROM scratch
+
+LABEL org.opencontainers.image.title="Pod Pruner"
+LABEL org.opencontainers.image.description="Kubernetes Container Pruner"
+LABEL com.docker.extension.publisher-url="https://github.com/saidsef/pod-pruner.git"
+LABEL com.docker.extension.categories="kubernetes,cleanup,pruner"
+
 COPY --from=build /app/pruner /
 CMD ["/pruner"]
