@@ -2,6 +2,10 @@
 
 This is a Kubernetes application written in Go (Golang) that periodically prunes containers in specified namespaces based on their statuses. The application can operate in a dry-run mode, allowing you to see which containers would be deleted without actually removing them.
 
+## Alternatives
+
+This application was inspired by [pod-reaper](https://github.com/saidsef/pod-reaper/tree/master). If you need an alternative, I suggest using [pod-reaper](https://github.com/saidsef/pod-reaper/tree/master).
+
 ## Table of Contents
 
 - [Prerequisites](#prerequisites)
