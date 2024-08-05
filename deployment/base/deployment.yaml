@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: pod-pruner
+  name: pod-pruner
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: pod-pruner
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: pod-pruner
+    spec:
+      containers:
+        - env:
+            - name: NAMESPACES
+              value: 'argocd'
+            - name: CONTAINER_STATUSES
+              value: 'Error,ContainerStatusUnknown,Unknown,Completed'
+          image: 'docker.io/saidsef/pod-pruner:dev'
+          imagePullPolicy: Always
+          name: pod-pruner
+          resources:
+            limits:
+              cpu: 30m
+              memory: 30Mi
+            requests:
+              cpu: 20m
+              memory: 20Mi
+      dnsPolicy: ClusterFirst
+      securityContext: {}
+      serviceAccountName: pod-pruner-service-account
+      terminationGracePeriodSeconds: 30
