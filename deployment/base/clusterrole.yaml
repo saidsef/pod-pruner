@@ -3,16 +3,12 @@ kind: ClusterRole
 metadata:
   name: pod-pruner
 rules:
-  - apiGroups:
-      - ''
-    resources:
-      - pods
-    verbs:
-      - list
-      - delete
-  - apiGroups:
-      - ''
-    resources:
-      - pods/eviction
-    verbs:
-      - create
+  - apiGroups: ['']
+    resources: ['pods']
+    verbs: ['list', 'delete']
+  - apiGroups: ['']
+    resources: ['pods/eviction']
+    verbs: ['create']
+  - apiGroups: ['batch']
+    resources: ['jobs']
+    verbs: ['list', 'delete']
