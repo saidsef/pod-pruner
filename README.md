@@ -1,5 +1,12 @@
 # Pod Pruner: Kubernetes Container Pruner
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/saidsef/pod-pruner)](https://goreportcard.com/report/github.com/saidsef/pod-pruner)
+![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/saidsef/pod-pruner)
+[![GoDoc](https://godoc.org/github.com/saidsef/pod-pruner?status.svg)](https://pkg.go.dev/github.com/saidsef/pod-pruner?tab=doc)
+![GitHub release(latest by date)](https://img.shields.io/github/v/release/saidsef/pod-pruner)
+![Commits](https://img.shields.io/github/commits-since/saidsef/pod-pruner/latest.svg)
+![GitHub](https://img.shields.io/github/license/saidsef/pod-pruner)
+
 This is a Kubernetes application written in Go (Golang) that periodically prunes containers in specified namespaces based on their statuses. The application can operate in a dry-run mode, allowing you to see which containers would be deleted without actually removing them.
 
 ## Alternatives
@@ -13,7 +20,6 @@ This application was inspired by [pod-reaper](https://github.com/saidsef/pod-rea
 - [Configuration](#configuration)
 - [Usage](#usage)
 - [How It Works](#how-it-works)
-- [License](#license)
 
 ## Prerequisites
 
@@ -40,8 +46,10 @@ go build pruner.go
 The application requires certain environment variables to be set:
 
 - `DRY_RUN`: Set to `"true"` to enable dry-run mode (default is `"true"`).
+- `RESOURCES`: A comma-separated list of Kubernetes resources (default is `"PODS"`)
 - `NAMESPACES`: A comma-separated list of namespaces to monitor for containers to prune.
 - `CONTAINER_STATUSES`: A comma-separated list of container statuses to filter by (e.g., `Waiting,Terminated`).
+- `JOB_STATUSES`: A comma-separated list of jobs statuses to filter by (e.g., `Succeeded,Failed`).
 
 Example of setting environment variables in a Kubernetes deployment spec:
 
