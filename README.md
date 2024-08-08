@@ -36,7 +36,7 @@ git clone https://github.com/saidsef/pod-pruner.git
 
 2. Build the application:
 ```bash
-go build pruner.go
+go build -o pod-pruner pruner/pruner.go
 ```
 
 3. Ensure that the application is packaged into a Docker image and pushed to a container registry if you plan to deploy it in a Kubernetes environment.
