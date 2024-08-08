@@ -19,7 +19,8 @@ func main() {
 	NAMESPACES := strings.Split(os.Getenv("NAMESPACES"), ",")
 	RESOURCES := strings.Split(utils.GetEnv("RESOURCES", "PODS", log), ",")
 
-	clientset, err := auth.CreateKubernetesClient(log)
+	k8sManager := auth.NewKubernetesClientManager(log)
+	clientset, err := k8sManager.GetKubernetesClient()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -36,12 +37,12 @@ func main() {
 					log.Errorf("Error fetching containers in namespace '%s': %v", namespace, err)
 					continue
 				}
-				log.Infof("Containers to be pruned in namespace '%s': %v", namespace, containers)
 
 				if len(containers) > 0 {
 					if dryRun == "true" {
 						log.Infof("Dry run enabled. The following containers would be deleted: %v", containers)
 					} else {
+						log.Infof("Containers to be pruned in namespace '%s': %v", namespace, containers)
 						resources.DeleteContainers(clientset, namespace, containers, log)
 					}
 				} else {
@@ -50,21 +51,21 @@ func main() {
 
 			}
 			if utils.Contains(RESOURCES, "JOBS") {
-				jobs, err := resources.GetJobs(clientset, namespace)
+				jobs, err := resources.GetJobs(clientset, namespace, log)
 				if err != nil {
 					log.Errorf("Error fetching jobs in namespace '%s': %v", namespace, err)
 					continue
 				}
-				log.Infof("Jobs to be pruned in namespace '%s': %v", namespace, jobs)
 
 				if len(jobs) > 0 {
 					if dryRun == "true" {
 						log.Infof("Dry run enabled. The following jobd would be deleted: %v", jobs)
 					} else {
+						log.Infof("Jobs to be pruned in namespace '%s': %v", namespace, jobs)
 						resources.DeleteJobs(clientset, namespace, jobs, log)
 					}
 				} else {
-					log.Infof("No jobs to prune in namespace '%s'", namespace)
+					log.Infof("No jobs to prune in namespace '%s': %v", namespace, jobs)
 				}
 			}
 		}

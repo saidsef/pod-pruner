@@ -3,7 +3,6 @@ package resources
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/saidsef/pod-pruner/pruner/utils"
@@ -22,8 +21,8 @@ import (
 // Returns:
 // - A slice of strings containing descriptions of the jobs that match the specified statuses.
 // - An error if there was an issue retrieving the jobs.
-func GetJobs(clientset *kubernetes.Clientset, namespace string) ([]string, error) {
-	statuses := strings.Split(os.Getenv("JOB_STATUSES"), ",")
+func GetJobs(clientset *kubernetes.Clientset, namespace string, log *logrus.Logger) ([]string, error) {
+	statuses := strings.Split(utils.GetEnv("JOB_STATUSES", "Complete", log), ",")
 	jobs, err := clientset.BatchV1().Jobs(namespace).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -32,8 +31,8 @@ func GetJobs(clientset *kubernetes.Clientset, namespace string) ([]string, error
 	var jobsList []string
 	for _, job := range jobs.Items {
 		for _, jobStatus := range job.Status.Conditions {
-			if utils.Contains(statuses, jobStatus.Reason) {
-				jobsList = append(jobsList, fmt.Sprintf("%s/%s: %s", job.Namespace, job.Name, jobStatus.Reason))
+			if utils.Contains(statuses, strings.TrimSpace(fmt.Sprint(jobStatus.Type))) {
+				jobsList = append(jobsList, fmt.Sprintf("%s/%s: %s", job.Namespace, job.Name, jobStatus.Type))
 			}
 		}
 	}
@@ -56,8 +55,9 @@ func DeleteJobs(clientset *kubernetes.Clientset, namespace string, jobs []string
 			log.Errorf("Invalid job format: %s", job)
 			continue
 		}
-		jobName := jobParts[1]
-		err := clientset.BatchV1().Jobs(namespace).Delete(context.TODO(), jobName, metav1.DeleteOptions{})
+		jobName := strings.TrimSpace(strings.Split(jobParts[1], ":")[0]) // Trim any whitespace from the job name
+		propagationPolicy := metav1.DeletePropagationBackground
+		err := clientset.BatchV1().Jobs(namespace).Delete(context.TODO(), jobName, metav1.DeleteOptions{PropagationPolicy: &propagationPolicy})
 		if err != nil {
 			log.Errorf("Failed to delete job %s: %v", jobName, err)
 		} else {
