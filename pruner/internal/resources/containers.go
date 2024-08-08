@@ -5,83 +5,137 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
-	"github.com/saidsef/pod-pruner/pruner/utils"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
-// GetContainers retrieves a list of container names in a given namespace that are in specified states.
-// It checks the environment variable CONTAINER_STATUSES to determine which states to filter by.
+// GetContainers retrieves a list of container names from pods in the specified namespace
+// that are in the states defined by the CONTAINER_STATUSES environment variable.
+// It returns a slice of container names in the format "namespace/podName: containerName".
+// If the environment variable is not set or is empty, an error is returned.
+// If there is an error while listing the pods, it returns an error with context.
 //
 // Parameters:
-// - clientset: A pointer to the Kubernetes clientset.
-// - namespace: The namespace from which to retrieve the containers.
+// - clientset: A Kubernetes clientset used to interact with the Kubernetes API.
+// - namespace: The namespace from which to retrieve the pods.
 //
 // Returns:
 // - A slice of strings containing the names of the containers in the specified states.
-// - An error if the retrieval of pods fails.
+// - An error if the environment variable is not set, empty, or if there is an error
+// while listing the pods.
 func GetContainers(clientset *kubernetes.Clientset, namespace string) ([]string, error) {
 	statuses := strings.Split(os.Getenv("CONTAINER_STATUSES"), ",")
-	pods, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		return nil, err
+	if len(statuses) == 0 || (len(statuses) == 1 && statuses[0] == "") {
+		return nil, fmt.Errorf("CONTAINER_STATUSES environment variable is not set or empty")
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
 	var containers []string
-	for _, pod := range pods.Items {
-		for _, containerStatus := range pod.Status.ContainerStatuses {
-			if IsContainerInState(containerStatus, statuses) {
-				containers = append(containers, fmt.Sprintf("%s/%s: %s", pod.Namespace, pod.Name, containerStatus.Name))
+	var continueToken string
+
+	for {
+		podList, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+			Continue: continueToken,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to list pods in namespace '%s': %w", namespace, err)
+		}
+
+		for _, pod := range podList.Items {
+			for _, containerStatus := range pod.Status.ContainerStatuses {
+				if isContainerInState(containerStatus, statuses) {
+					containers = append(containers, fmt.Sprintf("%s/%s: %s", pod.Namespace, pod.Name, containerStatus.Name))
+				}
 			}
 		}
+
+		if podList.Continue == "" {
+			break
+		}
+		continueToken = podList.Continue
 	}
+
 	return containers, nil
 }
 
-// IsContainerInState checks if a container's status matches any of the specified states.
+// isContainerInState checks if the given container status is in one of the specified states.
+// It returns true if the container is waiting or terminated with a reason that matches one of the statuses.
 //
 // Parameters:
 // - containerStatus: The status of the container to check.
 // - statuses: A slice of strings representing the states to check against.
 //
 // Returns:
-// - A boolean indicating whether the container is in one of the specified states.
-func IsContainerInState(containerStatus v1.ContainerStatus, statuses []string) bool {
-	if containerStatus.State.Waiting != nil && utils.Contains(statuses, containerStatus.State.Waiting.Reason) {
-		return true
+// - A boolean indicating whether the container status matches one of the specified states.
+func isContainerInState(containerStatus v1.ContainerStatus, statuses []string) bool {
+	statusSet := make(map[string]struct{}, len(statuses))
+	for _, status := range statuses {
+		statusSet[status] = struct{}{}
 	}
-	if containerStatus.State.Terminated != nil && utils.Contains(statuses, containerStatus.State.Terminated.Reason) {
-		return true
+
+	if containerStatus.State.Waiting != nil {
+		if _, exists := statusSet[containerStatus.State.Waiting.Reason]; exists {
+			return true
+		}
+	}
+	if containerStatus.State.Terminated != nil {
+		if _, exists := statusSet[containerStatus.State.Terminated.Reason]; exists {
+			return true
+		}
 	}
 	return false
 }
 
-// DeleteContainers deletes the specified containers in a given namespace.
-// It logs the success or failure of each deletion attempt.
+// DeleteContainers deletes the specified containers (pods) in the given namespace.
+// It logs warnings for any containers that do not conform to the expected format.
+// If a pod deletion fails, it logs an error; otherwise, it logs a success message.
 //
 // Parameters:
-// - clientset: A pointer to the Kubernetes clientset.
-// - namespace: The namespace from which to delete the containers.
-// - containers: A slice of strings representing the containers to delete.
-// - log: A logger instance for logging the results of the deletion attempts.
+// - clientset: A Kubernetes clientset used to interact with the Kubernetes API.
+// - namespace: The namespace from which to delete the pods.
+// - containers: A slice of strings containing the names of the containers to delete.
+// - log: A logger used to log messages regarding the deletion process.
 func DeleteContainers(clientset *kubernetes.Clientset, namespace string, containers []string, log *logrus.Logger) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
 	for _, container := range containers {
 		parts := strings.Split(container, ": ")
 		if len(parts) != 2 {
-			log.Warnf("Unexpected format for container state: '%s'", container)
+			log.WithFields(logrus.Fields{
+				"state": container,
+				"parts": parts,
+			}).Warn("Unexpected format for container")
 			continue
 		}
 		podInfo := parts[0]
-		containerName := strings.Split(podInfo, "/")[1]
+		podParts := strings.Split(podInfo, "/")
+		if len(podParts) != 2 {
+			log.WithFields(logrus.Fields{
+				"podInfo": podInfo,
+			}).Warn("Unexpected format for pod info")
+			continue
+		}
+		podName := podParts[1]
 
-		err := clientset.CoreV1().Pods(namespace).Delete(context.TODO(), containerName, metav1.DeleteOptions{})
+		err := clientset.CoreV1().Pods(namespace).Delete(ctx, podName, metav1.DeleteOptions{})
 		if err != nil {
-			log.Errorf("Failed to delete pod '%s' in namespace '%s': %v", podInfo, namespace, err)
+			log.WithFields(logrus.Fields{
+				"pod":       podInfo,
+				"namespace": namespace,
+				"error":     err,
+			}).Error("Failed to delete pod")
 		} else {
-			log.Infof("Successfully deleted pod '%s' in namespace '%s'", podInfo, namespace)
+			log.WithFields(logrus.Fields{
+				"pod":       podInfo,
+				"namespace": namespace,
+			}).Info("Successfully deleted pod")
 		}
 	}
 }

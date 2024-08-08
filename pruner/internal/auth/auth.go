@@ -2,32 +2,63 @@ package auth
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
-// CreateKubernetesClient creates a new Kubernetes client using in-cluster configuration.
-// It returns a pointer to the Kubernetes clientset or an error if the creation fails.
+// KubernetesClientManager manages the Kubernetes client creation and caching.
+type KubernetesClientManager struct {
+	clientset *kubernetes.Clientset
+	once      sync.Once
+	log       *logrus.Logger
+}
+
+// NewKubernetesClientManager creates a new instance of KubernetesClientManager.
 //
 // Parameters:
-// - log: A logger instance for logging errors.
+// - log: A pointer to a logrus.Logger instance for logging purposes.
 //
 // Returns:
-// - A pointer to the Kubernetes clientset.
-// - An error if the clientset could not be created.
-func CreateKubernetesClient(log *logrus.Logger) (*kubernetes.Clientset, error) {
-	config, err := rest.InClusterConfig()
+// - A pointer to a new instance of KubernetesClientManager.
+func NewKubernetesClientManager(log *logrus.Logger) *KubernetesClientManager {
+	return &KubernetesClientManager{log: log}
+}
+
+// GetKubernetesClient returns a Kubernetes clientset, creating it if it doesn't exist.
+//
+// This method ensures that the Kubernetes clientset is created only once using sync.Once.
+// It attempts to create an in-cluster Kubernetes configuration and then uses it to create
+// a clientset. If any error occurs during this process, it logs the error and returns it.
+//
+// Returns:
+// - A pointer to a kubernetes.Clientset if successful.
+// - An error if there was an issue creating the clientset or retrieving the configuration.
+func (m *KubernetesClientManager) GetKubernetesClient() (*kubernetes.Clientset, error) {
+	var err error
+	m.once.Do(func() {
+		config, errConfig := rest.InClusterConfig()
+		if errConfig != nil {
+			err = fmt.Errorf("failed to get in-cluster Kubernetes config: %w", errConfig)
+			m.log.Error(err)
+			return
+		}
+
+		m.clientset, err = kubernetes.NewForConfig(config)
+		if err != nil {
+			err = fmt.Errorf("unable to create client set for in-cluster Kubernetes config: %w", err)
+			m.log.Error(err)
+			return
+		}
+
+		m.log.Info("Successfully created Kubernetes clientset")
+	})
+
 	if err != nil {
-		return nil, fmt.Errorf("failed to get in-cluster Kubernetes config: %w", err)
+		return nil, err
 	}
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create client set for in-cluster Kubernetes config: %w", err)
-	}
-	if clientset == nil {
-		return nil, fmt.Errorf("Kubernetes client set cannot be nil")
-	}
-	return clientset, nil
+
+	return m.clientset, nil
 }

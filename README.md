@@ -36,7 +36,7 @@ git clone https://github.com/saidsef/pod-pruner.git
 
 2. Build the application:
 ```bash
-go build pruner.go
+go build -o pod-pruner pruner/pruner.go
 ```
 
 3. Ensure that the application is packaged into a Docker image and pushed to a container registry if you plan to deploy it in a Kubernetes environment.
@@ -48,8 +48,8 @@ The application requires certain environment variables to be set:
 - `DRY_RUN`: Set to `"true"` to enable dry-run mode (default is `"true"`).
 - `RESOURCES`: A comma-separated list of Kubernetes resources (default is `"PODS"`)
 - `NAMESPACES`: A comma-separated list of namespaces to monitor for containers to prune.
-- `CONTAINER_STATUSES`: A comma-separated list of container statuses to filter by (e.g., `Waiting,Terminated`).
-- `JOB_STATUSES`: A comma-separated list of jobs statuses to filter by (e.g., `Succeeded,Failed`).
+- `CONTAINER_STATUSES`: A comma-separated list of container statuses to filter by (e.g., `Error,ContainerStatusUnknown,Unknown,Completed`).
+- `JOB_STATUSES`: A comma-separated list of jobs statuses to filter by (default is `Complete`).
 
 Example of setting environment variables in a Kubernetes deployment spec:
 
