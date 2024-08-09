@@ -27,7 +27,7 @@ spec:
               value: 'argocd'
             - name: CONTAINER_STATUSES
               value: 'Error,ContainerStatusUnknown,Unknown,Completed'
-          image: 'docker.io/saidsef/pod-pruner:dev'
+          image: 'ghcr.io/saidsef/pod-pruner:v2024.08'
           imagePullPolicy: Always
           name: pod-pruner
           resources:
