@@ -43,9 +43,7 @@ func GetJobs(clientset *kubernetes.Clientset, namespace string, log *logrus.Logg
 	statuses := strings.Split(strings.TrimSpace(utils.GetEnv("JOB_STATUSES", "Complete", log)), ",")
 	jobs, err := clientset.BatchV1().Jobs(namespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
-		log.WithFields(logrus.Fields{
-			"error": err,
-		}).Error("Error retrieving jobs")
+		utils.LogWithFields(logrus.ErrorLevel, []string{}, "Error retrieving jobs", err)
 		return nil, err
 	}
 
@@ -75,23 +73,16 @@ func DeleteJobs(clientset *kubernetes.Clientset, namespace string, jobs []string
 			defer wg.Done()
 			jobParts := strings.Split(job, "/")
 			if len(jobParts) != 2 {
-				log.WithFields(logrus.Fields{
-					"job": job,
-				}).Error("Invalid job format")
+				utils.LogWithFields(logrus.ErrorLevel, []string{fmt.Sprintf("job:%s", jobs)}, "Invalid job format")
 				return
 			}
 			jobName := strings.TrimSpace(strings.Split(jobParts[1], ":")[0])
 			propagationPolicy := metav1.DeletePropagationBackground
 			err := clientset.BatchV1().Jobs(namespace).Delete(context.Background(), jobName, metav1.DeleteOptions{PropagationPolicy: &propagationPolicy})
 			if err != nil {
-				log.WithFields(logrus.Fields{
-					"job":   jobName,
-					"error": err,
-				}).Error("Failed to delete job")
+				utils.LogWithFields(logrus.ErrorLevel, []string{fmt.Sprintf("job:%s", jobName)}, "Failed to delete job", err)
 			} else {
-				log.WithFields(logrus.Fields{
-					"job": jobName,
-				}).Info("Successfully deleted job")
+				utils.LogWithFields(logrus.InfoLevel, []string{fmt.Sprintf("job:%s", jobName)}, "Successfully deleted job")
 			}
 		}(job)
 	}

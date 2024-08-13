@@ -66,21 +66,35 @@ func main() {
 				// Fetch containers in the current namespace.
 				containers, err := resources.GetContainers(clientset, namespace)
 				if err != nil {
-					utils.LogWithFields(logrus.ErrorLevel, append([]string{}, fmt.Sprintf("namespace:%s", namespace)), "Error fetching containers", err)
+					utils.LogWithFields(
+						logrus.ErrorLevel,
+						append([]string{}, fmt.Sprintf("namespace:%s", namespace)),
+						"Error fetching containers",
+						err,
+					)
 					continue
 				}
 
 				// If there are containers to prune, log the action based on dry run mode.
 				if len(containers) > 0 {
 					if dryRun == "true" {
-						utils.LogWithFields(logrus.InfoLevel, append(containers, fmt.Sprintf("namespace:%s", namespace)), "Dry run mode. The following containers would be deleted")
+						utils.LogWithFields(
+							logrus.InfoLevel,
+							append(containers,
+								fmt.Sprintf("namespace:%s", namespace)),
+							"Dry run mode. The following containers would be deleted",
+						)
 					} else {
 						utils.LogWithFields(logrus.InfoLevel, append(containers, namespace), "Containers to be pruned")
 						resources.DeleteContainers(clientset, namespace, containers, log)
 						metrics.ContainersPruned.WithLabelValues(namespace).Add(float64(len(containers))) // Increment the counter
 					}
 				} else {
-					utils.LogWithFields(logrus.InfoLevel, append([]string{}, fmt.Sprintf("namespace:%s", namespace)), "No containers to prune")
+					utils.LogWithFields(
+						logrus.InfoLevel,
+						append([]string{}, fmt.Sprintf("namespace:%s", namespace)),
+						"No containers to prune",
+					)
 				}
 			}
 
@@ -89,21 +103,38 @@ func main() {
 				// Fetch jobs in the current namespace.
 				jobs, err := resources.GetJobs(clientset, namespace, log)
 				if err != nil {
-					utils.LogWithFields(logrus.ErrorLevel, append([]string{}, fmt.Sprintf("namespace:%s", namespace)), "Error fetching jobs", err)
+					utils.LogWithFields(
+						logrus.ErrorLevel,
+						append([]string{}, fmt.Sprintf("namespace:%s", namespace)),
+						"Error fetching jobs",
+						err,
+					)
 					continue
 				}
 
 				// If there are jobs to prune, log the action based on dry run mode.
 				if len(jobs) > 0 {
 					if dryRun == "true" {
-						utils.LogWithFields(logrus.InfoLevel, jobs, "Dry run enabled. The following jobs would be deleted")
+						utils.LogWithFields(
+							logrus.InfoLevel,
+							jobs,
+							"Dry run enabled. The following jobs would be deleted",
+						)
 					} else {
-						utils.LogWithFields(logrus.InfoLevel, append(jobs, fmt.Sprintf("namespace:%s", namespace)), "Jobs to be pruned")
+						utils.LogWithFields(
+							logrus.InfoLevel,
+							append(jobs, fmt.Sprintf("namespace:%s", namespace)),
+							"Jobs to be pruned",
+						)
 						resources.DeleteJobs(clientset, namespace, jobs, log)
 						metrics.JobsPruned.WithLabelValues(namespace).Add(float64(len(jobs))) // Increment the counter
 					}
 				} else {
-					utils.LogWithFields(logrus.InfoLevel, append([]string{}, fmt.Sprintf("namespace:%s", namespace)), "No jobs to prune")
+					utils.LogWithFields(
+						logrus.InfoLevel,
+						append([]string{}, fmt.Sprintf("namespace:%s", namespace)),
+						"No jobs to prune",
+					)
 				}
 			}
 		}
