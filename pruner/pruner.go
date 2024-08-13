@@ -27,13 +27,13 @@ import (
 	"github.com/saidsef/pod-pruner/pruner/internal/resources"
 	"github.com/saidsef/pod-pruner/pruner/utils"
 	"github.com/sirupsen/logrus"
+	"k8s.io/client-go/kubernetes"
 )
 
 // main is the entry point of the application. It sets up logging,
-// retrieves environment variables,
-// and initiates a Kubernetes client manager to prune specified
-// resources (containers and jobs)
-// in the defined namespaces at regular intervals.
+// retrieves environment variables, and initiates a Kubernetes client
+// manager to prune specified resources (containers and jobs) in the
+// defined namespaces at regular intervals.
 func main() {
 	log := utils.Logger()
 	// Retrieve the dry run mode from environment variables, defaulting to "true".
@@ -47,7 +47,7 @@ func main() {
 	k8sManager := auth.NewKubernetesClientManager(log)
 	clientset, err := k8sManager.GetKubernetesClient()
 	if err != nil {
-		utils.LogWithFields(logrus.FatalLevel, []string{}, "Kubenetes config error", err)
+		utils.LogWithFields(logrus.FatalLevel, []string{}, "Kubernetes config error", err)
 	}
 
 	// Set up a ticker to trigger every 120 seconds.
@@ -75,27 +75,8 @@ func main() {
 					continue
 				}
 
-				// If there are containers to prune, log the action based on dry run mode.
-				if len(containers) > 0 {
-					if dryRun == "true" {
-						utils.LogWithFields(
-							logrus.InfoLevel,
-							append(containers,
-								fmt.Sprintf("namespace:%s", namespace)),
-							"Dry run mode. The following containers would be deleted",
-						)
-					} else {
-						utils.LogWithFields(logrus.InfoLevel, append(containers, namespace), "Containers to be pruned")
-						resources.DeleteContainers(clientset, namespace, containers, log)
-						metrics.ContainersPruned.WithLabelValues(namespace).Add(float64(len(containers))) // Increment the counter
-					}
-				} else {
-					utils.LogWithFields(
-						logrus.InfoLevel,
-						append([]string{}, fmt.Sprintf("namespace:%s", namespace)),
-						"No containers to prune",
-					)
-				}
+				// Handle pruning logic for containers.
+				handlePruning("containers", containers, namespace, dryRun, log, clientset)
 			}
 
 			// Check if "JOBS" is included in the resources to prune.
@@ -112,31 +93,47 @@ func main() {
 					continue
 				}
 
-				// If there are jobs to prune, log the action based on dry run mode.
-				if len(jobs) > 0 {
-					if dryRun == "true" {
-						utils.LogWithFields(
-							logrus.InfoLevel,
-							jobs,
-							"Dry run enabled. The following jobs would be deleted",
-						)
-					} else {
-						utils.LogWithFields(
-							logrus.InfoLevel,
-							append(jobs, fmt.Sprintf("namespace:%s", namespace)),
-							"Jobs to be pruned",
-						)
-						resources.DeleteJobs(clientset, namespace, jobs, log)
-						metrics.JobsPruned.WithLabelValues(namespace).Add(float64(len(jobs))) // Increment the counter
-					}
-				} else {
-					utils.LogWithFields(
-						logrus.InfoLevel,
-						append([]string{}, fmt.Sprintf("namespace:%s", namespace)),
-						"No jobs to prune",
-					)
-				}
+				// Handle pruning logic for jobs.
+				handlePruning("jobs", jobs, namespace, dryRun, log, clientset)
 			}
 		}
+	}
+}
+
+// handlePruning handles the common logic for pruning resources.
+// It logs the actions taken based on the dry run mode and performs
+// the deletion of specified resources if not in dry run mode.
+//
+// Parameters:
+// - resourceType: A string indicating the type of resource being pruned (e.g., "containers" or "jobs").
+// - items: A slice of strings representing the resource identifiers to be pruned.
+// - namespace: A string representing the Kubernetes namespace in which the resources reside.
+// - dryRun: A string indicating whether the operation is a dry run ("true" or "false").
+// - log: A pointer to a logrus.Logger instance for logging purposes.
+// - clientset: A pointer to a Kubernetes Clientset for interacting with the Kubernetes API.
+func handlePruning(resourceType string, items []string, namespace, dryRun string, log *logrus.Logger, clientset *kubernetes.Clientset) {
+	if len(items) > 0 {
+		if dryRun == "true" {
+			utils.LogWithFields(
+				logrus.InfoLevel,
+				append(items, fmt.Sprintf("namespace:%s", namespace)),
+				fmt.Sprintf("Dry run mode. The following %s would be deleted", resourceType),
+			)
+		} else {
+			utils.LogWithFields(logrus.InfoLevel, append(items, namespace), fmt.Sprintf("%s to be pruned", resourceType))
+			if resourceType == "containers" {
+				resources.DeleteContainers(clientset, namespace, items, log)
+				metrics.ContainersPruned.WithLabelValues(namespace).Add(float64(len(items))) // Increment the counter
+			} else if resourceType == "jobs" {
+				resources.DeleteJobs(clientset, namespace, items, log)
+				metrics.JobsPruned.WithLabelValues(namespace).Add(float64(len(items))) // Increment the counter
+			}
+		}
+	} else {
+		utils.LogWithFields(
+			logrus.InfoLevel,
+			append([]string{}, fmt.Sprintf("namespace:%s", namespace)),
+			fmt.Sprintf("No %s to prune", resourceType),
+		)
 	}
 }
