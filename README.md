@@ -68,6 +68,16 @@ Once the application is deployed, it will start monitoring the specified namespa
 3. **Container Monitoring**: Every 60 seconds, it checks the specified namespaces for containers that are in the defined states (e.g., `Waiting`, `Terminated`).
 4. **Pruning Logic**: If containers are found, it either logs the containers that would be deleted (in dry-run mode) or deletes them from the cluster.
 
+## Metrics
+
+This includes metrics to monitor the pruning activities. The following metrics are available:
+
+- **Pods Pruned**: Total number of pods pruned, labelled by namespace.
+- **Containers Pruned**: Total number of containers pruned, labelled by namespace.
+- **Jobs Pruned**: Total number of jobs pruned, labelled by namespace.
+
+The metrics are exposed at the `/metrics` endpoint and can be accessed via a Prometheus server.
+
 ## Source
 
 Our latest and greatest source of *Reverse Geocoding* can be found on [GitHub]. [Fork us](https://github.com/saidsef/pod-pruner/fork)!

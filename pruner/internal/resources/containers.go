@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/saidsef/pod-pruner/pruner/utils"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -124,34 +125,31 @@ func DeleteContainers(clientset *kubernetes.Clientset, namespace string, contain
 	for _, container := range containers {
 		parts := strings.Split(container, ": ")
 		if len(parts) != 2 {
-			log.WithFields(logrus.Fields{
-				"state": container,
-				"parts": parts,
-			}).Warn("Unexpected format for container")
+			utils.LogWithFields(logrus.WarnLevel, append(parts, fmt.Sprintf("state:%s", container)), "Unexpected format for container")
 			continue
 		}
 		podInfo := parts[0]
 		podParts := strings.Split(podInfo, "/")
 		if len(podParts) != 2 {
-			log.WithFields(logrus.Fields{
-				"podInfo": podInfo,
-			}).Warn("Unexpected format for pod info")
+			utils.LogWithFields(logrus.WarnLevel, []string{fmt.Sprintf("pod:%s", podInfo)}, "Unexpected format for pod info")
 			continue
 		}
 		podName := podParts[1]
 
 		err := clientset.CoreV1().Pods(namespace).Delete(ctx, podName, metav1.DeleteOptions{})
 		if err != nil {
-			log.WithFields(logrus.Fields{
-				"pod":       podInfo,
-				"namespace": namespace,
-				"error":     err,
-			}).Error("Failed to delete pod")
+			error := []string{
+				fmt.Sprintf("pod:%s", podInfo),
+				fmt.Sprintf("namespace:%s", namespace),
+				fmt.Sprintf("error:%v", err),
+			}
+			utils.LogWithFields(logrus.ErrorLevel, error, "Failed to delete pod", err)
 		} else {
-			log.WithFields(logrus.Fields{
-				"pod":       podInfo,
-				"namespace": namespace,
-			}).Info("Successfully deleted pod")
+			message := []string{
+				fmt.Sprintf("pod:%s", podInfo),
+				fmt.Sprintf("namespace:%s", namespace),
+			}
+			utils.LogWithFields(logrus.InfoLevel, message, "Successfully deleted pod")
 		}
 	}
 }
