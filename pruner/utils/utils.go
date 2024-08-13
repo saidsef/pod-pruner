@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,11 +18,18 @@ package utils
 
 import (
 	"os"
+	"strings"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 )
 
-// getEnv retrieves the value of the environment variable specified by key.
+var (
+	logger *logrus.Logger
+	once   sync.Once
+)
+
+// GetEnv retrieves the value of the environment variable specified by key.
 // If the variable is not set, it returns the defaultValue and logs a warning.
 //
 // Parameters:
@@ -56,4 +63,64 @@ func Contains(list []string, str string) bool {
 		}
 	}
 	return false
+}
+
+// LogWithFields is a utility function for logging messages with different log levels.
+// It logs the provided message along with any additional fields and an error if present.
+//
+// Parameters:
+// - level: The log level at which to log the message (e.g., Error, Warn, Info, Debug).
+// - fields: A map of fields to include in the log entry.
+// - message: The message to log.
+// - err: An optional error to include in the log entry.
+//
+// Returns:
+// - None. The function logs the message at the specified log level.
+func LogWithFields(level logrus.Level, fields []string, message string, errs ...error) {
+	logFields := logrus.Fields{}
+
+	// Convert []string to logrus.Fields
+	for _, field := range fields {
+		parts := strings.SplitN(field, ":", 2) // Split into key and value
+		if len(parts) == 2 {
+			key := strings.TrimSpace(parts[0])
+			value := strings.TrimSpace(parts[1])
+			logFields[key] = value
+		}
+	}
+
+	// If there's an error, add it to the fields
+	if len(errs) > 0 {
+		logFields["error"] = errs
+	}
+
+	// Log based on the level
+	switch level {
+	case logrus.ErrorLevel:
+		Logger().WithFields(logFields).Error(message)
+	case logrus.FatalLevel:
+		Logger().WithFields(logFields).Fatal(message)
+	case logrus.WarnLevel:
+		Logger().WithFields(logFields).Warn(message)
+	case logrus.DebugLevel:
+		Logger().WithFields(logFields).Debug(message)
+	case logrus.InfoLevel:
+		Logger().WithFields(logFields).Info(message)
+	default:
+		Logger().WithFields(logFields).Info(message)
+	}
+}
+
+// Logger initializes and returns a singleton logrus Logger with JSON formatting.
+// It ensures that only one instance of the logger is created using sync.Once.
+// The logger is configured to use JSON formatting with timestamps enabled.
+//
+// Returns:
+// *logrus.Logger: A singleton instance of the logrus Logger.
+func Logger() *logrus.Logger {
+	once.Do(func() {
+		logger = logrus.New()
+		logger.SetFormatter(&logrus.JSONFormatter{DisableTimestamp: false})
+	})
+	return logger
 }
