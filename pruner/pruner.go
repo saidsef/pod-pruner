@@ -76,7 +76,7 @@ func main() {
 				}
 
 				// Handle pruning logic for containers.
-				handlePruning("containers", containers, namespace, dryRun, log, clientset)
+				handlePruning("containers", containers, dryRun, log, clientset)
 			}
 
 			// Check if "JOBS" is included in the resources to prune.
@@ -94,7 +94,7 @@ func main() {
 				}
 
 				// Handle pruning logic for jobs.
-				handlePruning("jobs", jobs, namespace, dryRun, log, clientset)
+				handlePruning("jobs", jobs, dryRun, log, clientset)
 			}
 		}
 	}
@@ -106,17 +106,16 @@ func main() {
 //
 // Parameters:
 // - resourceType: A string indicating the type of resource being pruned (e.g., "containers" or "jobs").
-// - items: A slice of strings representing the resource identifiers to be pruned.
-// - namespace: A string representing the Kubernetes namespace in which the resources reside.
+// - items: A slice of ContainerInfo representing the resource identifiers to be pruned.
 // - dryRun: A string indicating whether the operation is a dry run ("true" or "false").
 // - log: A pointer to a logrus.Logger instance for logging purposes.
 // - clientset: A pointer to a Kubernetes Clientset for interacting with the Kubernetes API.
-func handlePruning(resourceType string, items []resources.ContainerInfo, namespace string, dryRun string, log *logrus.Logger, clientset *kubernetes.Clientset) {
+func handlePruning(resourceType string, items []resources.ContainerInfo, dryRun string, log *logrus.Logger, clientset *kubernetes.Clientset) {
+	var values []string
+	for _, item := range items {
+		values = append(values, item.Namespace, item.PodName, item.Status)
+	}
 	if len(items) > 0 {
-		var values []string
-		for _, item := range items {
-			values = append(values, item.Namespace, item.PodName, item.Status)
-		}
 		if dryRun == "true" {
 			utils.LogWithFields(
 				logrus.InfoLevel,
@@ -137,7 +136,7 @@ func handlePruning(resourceType string, items []resources.ContainerInfo, namespa
 	} else {
 		utils.LogWithFields(
 			logrus.InfoLevel,
-			[]string{fmt.Sprintf("namespace:%s", namespace)},
+			values,
 			fmt.Sprintf("No %s to prune", resourceType),
 		)
 	}

@@ -73,7 +73,7 @@ func DeleteJobs(clientset *kubernetes.Clientset, jobs []ContainerInfo, log *logr
 	var wg sync.WaitGroup
 	for _, job := range jobs {
 		wg.Add(1)
-		go func(job ContainerInfo) {
+		go func(job *ContainerInfo) {
 			defer wg.Done()
 			propagationPolicy := metav1.DeletePropagationBackground
 			err := clientset.BatchV1().Jobs(job.Namespace).Delete(context.Background(), job.PodName, metav1.DeleteOptions{PropagationPolicy: &propagationPolicy})
@@ -83,7 +83,7 @@ func DeleteJobs(clientset *kubernetes.Clientset, jobs []ContainerInfo, log *logr
 				metrics.JobsPruned.WithLabelValues(job.Namespace, job.Status).Add(1) // Increment the counter
 				utils.LogWithFields(logrus.InfoLevel, []string{fmt.Sprintf("job:%s", job.PodName)}, "Successfully deleted job")
 			}
-		}(job)
+		}(&job)
 	}
 	wg.Wait()
 }
