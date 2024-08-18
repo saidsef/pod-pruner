@@ -68,7 +68,7 @@ func main() {
 				if err != nil {
 					utils.LogWithFields(
 						logrus.ErrorLevel,
-						append([]string{}, fmt.Sprintf("namespace:%s", namespace)),
+						[]string{fmt.Sprintf("namespace:%s", namespace)},
 						"Error fetching containers",
 						err,
 					)
@@ -86,7 +86,7 @@ func main() {
 				if err != nil {
 					utils.LogWithFields(
 						logrus.ErrorLevel,
-						append([]string{}, fmt.Sprintf("namespace:%s", namespace)),
+						[]string{fmt.Sprintf("namespace:%s", namespace)},
 						"Error fetching jobs",
 						err,
 					)
@@ -111,28 +111,33 @@ func main() {
 // - dryRun: A string indicating whether the operation is a dry run ("true" or "false").
 // - log: A pointer to a logrus.Logger instance for logging purposes.
 // - clientset: A pointer to a Kubernetes Clientset for interacting with the Kubernetes API.
-func handlePruning(resourceType string, items []string, namespace, dryRun string, log *logrus.Logger, clientset *kubernetes.Clientset) {
+func handlePruning(resourceType string, items []resources.ContainerInfo, namespace string, dryRun string, log *logrus.Logger, clientset *kubernetes.Clientset) {
 	if len(items) > 0 {
+		var values []string
+		for _, item := range items {
+			values = append(values, item.Namespace, item.PodName, item.Status)
+		}
 		if dryRun == "true" {
 			utils.LogWithFields(
 				logrus.InfoLevel,
-				append(items, fmt.Sprintf("namespace:%s", namespace)),
+				values,
 				fmt.Sprintf("Dry run mode. The following %s would be deleted", resourceType),
 			)
 		} else {
-			utils.LogWithFields(logrus.InfoLevel, append(items, namespace), fmt.Sprintf("%s to be pruned", resourceType))
+			utils.LogWithFields(logrus.InfoLevel,
+				values,
+				fmt.Sprintf("%s to be pruned", resourceType))
 			if resourceType == "containers" {
-				resources.DeleteContainers(clientset, namespace, items, log)
-				metrics.ContainersPruned.WithLabelValues(namespace).Add(float64(len(items))) // Increment the counter
+				resources.DeleteContainers(clientset, items, log)
 			} else if resourceType == "jobs" {
-				resources.DeleteJobs(clientset, namespace, items, log)
-				metrics.JobsPruned.WithLabelValues(namespace).Add(float64(len(items))) // Increment the counter
+				resources.DeleteJobs(clientset, items, log)
 			}
 		}
+
 	} else {
 		utils.LogWithFields(
 			logrus.InfoLevel,
-			append([]string{}, fmt.Sprintf("namespace:%s", namespace)),
+			[]string{fmt.Sprintf("namespace:%s", namespace)},
 			fmt.Sprintf("No %s to prune", resourceType),
 		)
 	}

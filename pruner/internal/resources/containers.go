@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/saidsef/pod-pruner/pruner/internal/metrics"
 	"github.com/saidsef/pod-pruner/pruner/utils"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -41,10 +42,10 @@ import (
 // - namespace: The namespace from which to retrieve the pods.
 //
 // Returns:
-// - A slice of strings containing the names of the containers in the specified states.
+// - A slice of ContainerInfo containing the names of the containers in the specified states.
 // - An error if the environment variable is not set, empty, or if there is an error
 // while listing the pods.
-func GetContainers(clientset *kubernetes.Clientset, namespace string) ([]string, error) {
+func GetContainers(clientset *kubernetes.Clientset, namespace string) ([]ContainerInfo, error) {
 	statuses := strings.Split(os.Getenv("CONTAINER_STATUSES"), ",")
 	if len(statuses) == 0 || (len(statuses) == 1 && statuses[0] == "") {
 		return nil, fmt.Errorf("CONTAINER_STATUSES environment variable is not set or empty")
@@ -53,7 +54,7 @@ func GetContainers(clientset *kubernetes.Clientset, namespace string) ([]string,
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	var containers []string
+	var containers []ContainerInfo
 	var continueToken string
 
 	for {
@@ -67,7 +68,11 @@ func GetContainers(clientset *kubernetes.Clientset, namespace string) ([]string,
 		for _, pod := range podList.Items {
 			for _, containerStatus := range pod.Status.ContainerStatuses {
 				if isContainerInState(containerStatus, statuses) {
-					containers = append(containers, fmt.Sprintf("%s/%s: %s", pod.Namespace, pod.Name, containerStatus.Name))
+					containers = append(containers, ContainerInfo{
+						Namespace: pod.Namespace,
+						PodName:   pod.Name,
+						Status:    containerStatus.State.Terminated.Reason,
+					})
 				}
 			}
 		}
@@ -115,40 +120,27 @@ func isContainerInState(containerStatus v1.ContainerStatus, statuses []string) b
 //
 // Parameters:
 // - clientset: A Kubernetes clientset used to interact with the Kubernetes API.
-// - namespace: The namespace from which to delete the pods.
-// - containers: A slice of strings containing the names of the containers to delete.
+// - containers: A slice of ContainerInfo containing the names of the containers to delete.
 // - log: A logger used to log messages regarding the deletion process.
-func DeleteContainers(clientset *kubernetes.Clientset, namespace string, containers []string, log *logrus.Logger) {
+func DeleteContainers(clientset *kubernetes.Clientset, containers []ContainerInfo, log *logrus.Logger) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	for _, container := range containers {
-		parts := strings.Split(container, ": ")
-		if len(parts) != 2 {
-			utils.LogWithFields(logrus.WarnLevel, append(parts, fmt.Sprintf("state:%s", container)), "Unexpected format for container")
-			continue
-		}
-		podInfo := parts[0]
-		podParts := strings.Split(podInfo, "/")
-		if len(podParts) != 2 {
-			utils.LogWithFields(logrus.WarnLevel, []string{fmt.Sprintf("pod:%s", podInfo)}, "Unexpected format for pod info")
-			continue
-		}
-		podName := podParts[1]
-
-		err := clientset.CoreV1().Pods(namespace).Delete(ctx, podName, metav1.DeleteOptions{})
+		err := clientset.CoreV1().Pods(container.Namespace).Delete(ctx, container.PodName, metav1.DeleteOptions{})
 		if err != nil {
 			error := []string{
-				fmt.Sprintf("pod:%s", podInfo),
-				fmt.Sprintf("namespace:%s", namespace),
+				fmt.Sprintf("pod:%s", container.PodName),
+				fmt.Sprintf("namespace:%s", container.Namespace),
 				fmt.Sprintf("error:%v", err),
 			}
 			utils.LogWithFields(logrus.ErrorLevel, error, "Failed to delete pod", err)
 		} else {
 			message := []string{
-				fmt.Sprintf("pod:%s", podInfo),
-				fmt.Sprintf("namespace:%s", namespace),
+				fmt.Sprintf("pod:%s", container.PodName),
+				fmt.Sprintf("namespace:%s", container.Namespace),
 			}
+			metrics.ContainersPruned.WithLabelValues(container.Namespace, container.Status).Add(1) // Increment the counter
 			utils.LogWithFields(logrus.InfoLevel, message, "Successfully deleted pod")
 		}
 	}

@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,6 +22,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/saidsef/pod-pruner/pruner/internal/metrics"
 	"github.com/saidsef/pod-pruner/pruner/utils"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,9 +38,9 @@ import (
 // - log: A logger to log messages.
 //
 // Returns:
-// - A slice of strings, each representing a job description in the format "namespace/jobName: jobStatus".
+// - A slice of ContainerInfo, each representing a job description with namespace, pod name, and status.
 // - An error if any occurs during the retrieval of jobs.
-func GetJobs(clientset *kubernetes.Clientset, namespace string, log *logrus.Logger) ([]string, error) {
+func GetJobs(clientset *kubernetes.Clientset, namespace string, log *logrus.Logger) ([]ContainerInfo, error) {
 	statuses := strings.Split(strings.TrimSpace(utils.GetEnv("JOB_STATUSES", "Complete", log)), ",")
 	jobs, err := clientset.BatchV1().Jobs(namespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
@@ -47,11 +48,15 @@ func GetJobs(clientset *kubernetes.Clientset, namespace string, log *logrus.Logg
 		return nil, err
 	}
 
-	var jobsList []string
+	var jobsList []ContainerInfo
 	for _, job := range jobs.Items {
 		for _, jobStatus := range job.Status.Conditions {
 			if utils.Contains(statuses, string(jobStatus.Type)) {
-				jobsList = append(jobsList, fmt.Sprintf("%s/%s: %s", job.Namespace, job.Name, jobStatus.Type))
+				jobsList = append(jobsList, ContainerInfo{
+					Namespace: job.Namespace,
+					PodName:   job.Name,
+					Status:    string(jobStatus.Type),
+				})
 			}
 		}
 	}
@@ -62,27 +67,21 @@ func GetJobs(clientset *kubernetes.Clientset, namespace string, log *logrus.Logg
 //
 // Parameters:
 // - clientset: A Kubernetes clientset to interact with the Kubernetes API.
-// - namespace: The namespace from which to delete the jobs.
-// - jobs: A slice of strings, each representing a job description in the format "namespace/jobName: jobStatus".
+// - jobs: A slice of ContainerInfo, each representing a job description with namespace, pod name, and status.
 // - log: A logger to log messages.
-func DeleteJobs(clientset *kubernetes.Clientset, namespace string, jobs []string, log *logrus.Logger) {
+func DeleteJobs(clientset *kubernetes.Clientset, jobs []ContainerInfo, log *logrus.Logger) {
 	var wg sync.WaitGroup
 	for _, job := range jobs {
 		wg.Add(1)
-		go func(job string) {
+		go func(job ContainerInfo) {
 			defer wg.Done()
-			jobParts := strings.Split(job, "/")
-			if len(jobParts) != 2 {
-				utils.LogWithFields(logrus.ErrorLevel, []string{fmt.Sprintf("job:%s", jobs)}, "Invalid job format")
-				return
-			}
-			jobName := strings.TrimSpace(strings.Split(jobParts[1], ":")[0])
 			propagationPolicy := metav1.DeletePropagationBackground
-			err := clientset.BatchV1().Jobs(namespace).Delete(context.Background(), jobName, metav1.DeleteOptions{PropagationPolicy: &propagationPolicy})
+			err := clientset.BatchV1().Jobs(job.Namespace).Delete(context.Background(), job.PodName, metav1.DeleteOptions{PropagationPolicy: &propagationPolicy})
 			if err != nil {
-				utils.LogWithFields(logrus.ErrorLevel, []string{fmt.Sprintf("job:%s", jobName)}, "Failed to delete job", err)
+				utils.LogWithFields(logrus.ErrorLevel, []string{fmt.Sprintf("job:%s", job.PodName)}, "Failed to delete job", err)
 			} else {
-				utils.LogWithFields(logrus.InfoLevel, []string{fmt.Sprintf("job:%s", jobName)}, "Successfully deleted job")
+				metrics.JobsPruned.WithLabelValues(job.Namespace, job.Status).Add(1) // Increment the counter
+				utils.LogWithFields(logrus.InfoLevel, []string{fmt.Sprintf("job:%s", job.PodName)}, "Successfully deleted job")
 			}
 		}(job)
 	}
