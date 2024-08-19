@@ -29,7 +29,7 @@ import (
 // Define counters for metrics
 var (
 	// PodsPruned counts the total number of pods pruned, labelled by namespace.
-	PodsPruned = prometheus.NewCounterVec(
+	PodsPruned = *prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "pods_pruned_total",
 			Help: "Total number of pods pruned",
@@ -38,7 +38,7 @@ var (
 	)
 
 	// ContainersPruned counts the total number of containers pruned, labelled by namespace.
-	ContainersPruned = prometheus.NewCounterVec(
+	ContainersPruned = *prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "containers_pruned_total",
 			Help: "Total number of containers pruned",
@@ -47,7 +47,7 @@ var (
 	)
 
 	// JobsPruned counts the total number of jobs pruned, labelled by namespace.
-	JobsPruned = prometheus.NewCounterVec(
+	JobsPruned = *prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "jobs_pruned_total",
 			Help: "Total number of jobs pruned",
@@ -68,10 +68,7 @@ var (
 
 // Init registers the defined metrics with Prometheus.
 func Init() {
-	prometheus.MustRegister(ContainersPruned)
-	prometheus.MustRegister(JobsPruned)
-	prometheus.MustRegister(PodsPruned)
-	// prometheus.MustRegister(ResourcePruned)
+	prometheus.MustRegister(&ContainersPruned, &JobsPruned, &PodsPruned)
 }
 
 // StartMetricsServer and add handler for /metrics endpoint
