@@ -1,6 +1,6 @@
 module github.com/saidsef/pod-pruner
 
-go 1.22.5
+go 1.23
 
 require (
 	github.com/prometheus/client_golang v1.20.0
