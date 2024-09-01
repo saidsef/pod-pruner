@@ -19,6 +19,7 @@ package metrics
 import (
 	"fmt"
 	"net/http"
+	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -29,7 +30,7 @@ import (
 // Define counters for metrics
 var (
 	// PodsPruned counts the total number of pods pruned, labelled by namespace.
-	PodsPruned = *prometheus.NewCounterVec(
+	PodsPruned = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "pods_pruned_total",
 			Help: "Total number of pods pruned",
@@ -38,7 +39,7 @@ var (
 	)
 
 	// ContainersPruned counts the total number of containers pruned, labelled by namespace.
-	ContainersPruned = *prometheus.NewCounterVec(
+	ContainersPruned = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "containers_pruned_total",
 			Help: "Total number of containers pruned",
@@ -47,33 +48,29 @@ var (
 	)
 
 	// JobsPruned counts the total number of jobs pruned, labelled by namespace.
-	JobsPruned = *prometheus.NewCounterVec(
+	JobsPruned = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "jobs_pruned_total",
 			Help: "Total number of jobs pruned",
 		},
 		[]string{"namespace", "state"},
 	)
-	// ResourcePruned counts the total number pruned, labelled by namespace.
-	ResourcePruned = func(name string) {
-		prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Name: fmt.Sprintf("%s_pruned_total", name),
-				Help: fmt.Sprintf("Total number of %s pruned", name),
-			},
-			[]string{"namespace", "state"},
-		)
-	}
+
+	once sync.Once
 )
 
-// Init registers the defined metrics with Prometheus.
-func Init() {
-	prometheus.MustRegister(&ContainersPruned, &JobsPruned, &PodsPruned)
+// init registers the defined metrics with Prometheus.
+func init() {
+	once.Do(func() {
+		logger := utils.Logger()
+		utils.LogWithFields(logrus.InfoLevel, []string{}, "registering prometheus metrics count vectors")
+		prometheus.MustRegister(PodsPruned, ContainersPruned, JobsPruned)
+		StartMetricsServer(logger)
+	})
 }
 
-// StartMetricsServer and add handler for /metrics endpoint
+// StartMetricsServer starts the metrics server and adds a handler for the /metrics endpoint.
 func StartMetricsServer(log *logrus.Logger) {
-	Init()
 	go func() {
 		http.Handle("/metrics", promhttp.Handler())
 		port := utils.GetEnv("PORT", "8080", log)
