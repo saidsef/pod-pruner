@@ -33,10 +33,10 @@ spec:
           resources:
             limits:
               cpu: 10m
-              memory: 15Mi
+              memory: 20Mi
             requests:
               cpu: 5m
-              memory: 5Mi
+              memory: 10Mi
       dnsPolicy: ClusterFirst
       securityContext: {}
       serviceAccountName: pod-pruner
