@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/saidsef/pod-pruner/pruner/internal/auth"
-	"github.com/saidsef/pod-pruner/pruner/internal/metrics"
+	_ "github.com/saidsef/pod-pruner/pruner/internal/metrics"
 	"github.com/saidsef/pod-pruner/pruner/internal/resources"
 	"github.com/saidsef/pod-pruner/pruner/utils"
 	"github.com/sirupsen/logrus"
@@ -54,7 +54,6 @@ func main() {
 	ticker := time.NewTicker(120 * time.Second)
 	defer ticker.Stop()
 
-	metrics.StartMetricsServer(log)
 	utils.LogWithFields(logrus.InfoLevel, RESOURCES, "Resources to include in pruner")
 
 	// Main loop that runs every tick.
