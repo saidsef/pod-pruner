@@ -6,7 +6,7 @@ require (
 	github.com/prometheus/client_golang v1.20.5
 	github.com/sirupsen/logrus v1.9.3
 	k8s.io/api v0.31.1
-	k8s.io/apimachinery v0.31.1
+	k8s.io/apimachinery v0.31.2
 	k8s.io/client-go v0.31.1
 )
 
