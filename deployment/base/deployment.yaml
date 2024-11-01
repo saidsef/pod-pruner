@@ -32,7 +32,7 @@ spec:
               value: 'Error,ContainerStatusUnknown,Unknown,Completed'
             - name: RESOURCES
               value: 'PODS,JOBS'
-          image: 'ghcr.io/saidsef/pod-pruner:v2024.09'
+          image: 'ghcr.io/saidsef/pod-pruner:v2024.10'
           imagePullPolicy: Always
           name: pod-pruner
           resources:
