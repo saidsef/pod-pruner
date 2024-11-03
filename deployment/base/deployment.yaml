@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: pod-pruner
+    app.kubernetes.net/name: pod-pruner
   name: pod-pruner
 spec:
   progressDeadlineSeconds: 600
@@ -10,7 +10,7 @@ spec:
   revisionHistoryLimit: 5
   selector:
     matchLabels:
-      app: pod-pruner
+      app.kubernetes.net/name: pod-pruner
   strategy:
     rollingUpdate:
       maxSurge: 25%
@@ -19,7 +19,7 @@ spec:
   template:
     metadata:
       labels:
-        app: pod-pruner
+        app.kubernetes.net/name: pod-pruner
       annotations:
         prometheus.io/port: "8080"
         prometheus.io/scrape: "true"
@@ -43,6 +43,13 @@ spec:
               cpu: 5m
               memory: 10Mi
       dnsPolicy: ClusterFirst
-      securityContext: {}
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        privileged: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
       serviceAccountName: pod-pruner
       terminationGracePeriodSeconds: 30
