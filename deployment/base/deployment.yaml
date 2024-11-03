@@ -50,6 +50,7 @@ spec:
             privileged: false
             readOnlyRootFilesystem: true
             runAsNonRoot: true
+            runAsUser: 1000
       dnsPolicy: ClusterFirst
       securityContext: {}
       serviceAccountName: pod-pruner
