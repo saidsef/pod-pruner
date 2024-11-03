@@ -8,6 +8,8 @@ RUN go build -v -ldflags "-s -w" -trimpath -buildvcs -compiler gc -o ./pod-prune
 # Application
 FROM scratch
 
+USER 1000
+
 LABEL org.opencontainers.image.title="Pod Pruner"
 LABEL org.opencontainers.image.description="Kubernetes Container Pruner"
 LABEL org.opencontainers.image.source="https://github.com/saidsef/pod-pruner.git"
