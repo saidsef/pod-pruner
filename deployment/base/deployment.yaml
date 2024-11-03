@@ -42,14 +42,15 @@ spec:
             requests:
               cpu: 5m
               memory: 10Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
       dnsPolicy: ClusterFirst
-      securityContext:
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop:
-            - ALL
-        privileged: false
-        readOnlyRootFilesystem: true
-        runAsNonRoot: true
+      securityContext: {}
       serviceAccountName: pod-pruner
       terminationGracePeriodSeconds: 30
