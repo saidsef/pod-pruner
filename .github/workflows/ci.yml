@@ -123,7 +123,7 @@ jobs:
       with: 
         package-name: 'pod-pruner'
         package-type: 'container'
-        min-versions-to-keep: 10
+        min-versions-to-keep: 20
         # ignore-versions: '^(0|[1-9]\\d*)\\.0\\.0$|^(latest|v\\d{4}\\.\\d{2})$'
 
   k8s-test:
