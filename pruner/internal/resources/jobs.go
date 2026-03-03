@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/saidsef/pod-pruner/pruner/internal/metrics"
 	"github.com/saidsef/pod-pruner/pruner/utils"
@@ -42,7 +43,9 @@ import (
 // - An error if any occurs during the retrieval of jobs.
 func GetJobs(clientset *kubernetes.Clientset, namespace string, log *logrus.Logger) ([]ContainerInfo, error) {
 	statuses := strings.Split(strings.TrimSpace(utils.GetEnv("JOB_STATUSES", "Complete", log)), ",")
-	jobs, err := clientset.BatchV1().Jobs(namespace).List(context.Background(), metav1.ListOptions{})
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	jobs, err := clientset.BatchV1().Jobs(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		utils.LogWithFields(logrus.ErrorLevel, []string{}, "Error retrieving jobs", err)
 		return nil, err
@@ -76,8 +79,10 @@ func DeleteJobs(clientset *kubernetes.Clientset, jobs []ContainerInfo, log *logr
 		wg.Add(1)
 		go func(job *ContainerInfo) {
 			defer wg.Done()
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
 			propagationPolicy := metav1.DeletePropagationBackground
-			err := clientset.BatchV1().Jobs(job.Namespace).Delete(context.Background(), job.PodName, metav1.DeleteOptions{PropagationPolicy: &propagationPolicy})
+			err := clientset.BatchV1().Jobs(job.Namespace).Delete(ctx, job.PodName, metav1.DeleteOptions{PropagationPolicy: &propagationPolicy})
 			if err != nil {
 				utils.LogWithFields(logrus.ErrorLevel, []string{fmt.Sprintf("job:%s", job.PodName)}, "Failed to delete job", err)
 			} else {
