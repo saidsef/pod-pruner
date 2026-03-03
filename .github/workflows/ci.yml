@@ -56,7 +56,9 @@ jobs:
       uses: actions/checkout@v4
     - name: Set Tag Name
       run: |
-        echo "TAG=${{ github.head_ref || github.ref_name }}" >> $GITHUB_ENV
+        RAW_TAG="${{ github.head_ref || github.ref_name }}"
+        SANITIZED_TAG=$(echo "$RAW_TAG" | tr '/' '-')
+        echo "TAG=$SANITIZED_TAG" >> $GITHUB_ENV
         echo "DATE=v$(echo `date +'%Y.%m'`)" >> $GITHUB_ENV
     - name: Check for changes in 'pruner' folder
       id: check_changes
