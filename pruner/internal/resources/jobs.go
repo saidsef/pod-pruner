@@ -72,6 +72,7 @@ func GetJobs(clientset *kubernetes.Clientset, namespace string, log *logrus.Logg
 func DeleteJobs(clientset *kubernetes.Clientset, jobs []ContainerInfo, log *logrus.Logger) {
 	var wg sync.WaitGroup
 	for _, job := range jobs {
+		job := job // Create local copy to avoid closure variable capture bug
 		wg.Add(1)
 		go func(job *ContainerInfo) {
 			defer wg.Done()
