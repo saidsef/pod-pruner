@@ -68,10 +68,16 @@ func GetContainers(clientset *kubernetes.Clientset, namespace string) ([]Contain
 		for _, pod := range podList.Items {
 			for _, containerStatus := range pod.Status.ContainerStatuses {
 				if isContainerInState(containerStatus, statuses) {
+					var statusReason string
+					if containerStatus.State.Waiting != nil {
+						statusReason = containerStatus.State.Waiting.Reason
+					} else if containerStatus.State.Terminated != nil {
+						statusReason = containerStatus.State.Terminated.Reason
+					}
 					containers = append(containers, ContainerInfo{
 						Namespace: pod.Namespace,
 						PodName:   pod.Name,
-						Status:    containerStatus.State.Terminated.Reason,
+						Status:    statusReason,
 					})
 				}
 			}
