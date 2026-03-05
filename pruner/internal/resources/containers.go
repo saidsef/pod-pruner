@@ -146,7 +146,7 @@ func DeleteContainers(clientset *kubernetes.Clientset, containers []ContainerInf
 				fmt.Sprintf("pod:%s", container.PodName),
 				fmt.Sprintf("namespace:%s", container.Namespace),
 			}
-			metrics.ContainersPruned.WithLabelValues(container.Namespace, container.Status).Add(1) // Increment the counter
+			metrics.PodsPruned.WithLabelValues(container.Namespace, container.Status).Add(1) // Increment the counter
 			utils.LogWithFields(logrus.InfoLevel, message, "Successfully deleted pod")
 		}
 	}
