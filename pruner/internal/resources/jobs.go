@@ -45,25 +45,36 @@ func GetJobs(clientset *kubernetes.Clientset, namespace string, log *logrus.Logg
 	statuses := strings.Split(strings.TrimSpace(utils.GetEnv("JOB_STATUSES", "Complete", log)), ",")
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	jobs, err := clientset.BatchV1().Jobs(namespace).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		utils.LogWithFields(logrus.ErrorLevel, []string{}, "Error retrieving jobs", err)
-		return nil, err
-	}
 
-	var jobsList []ContainerInfo
-	for _, job := range jobs.Items {
-		for _, jobStatus := range job.Status.Conditions {
-			if utils.Contains(statuses, string(jobStatus.Type)) {
-				jobsList = append(jobsList, ContainerInfo{
-					Namespace: job.Namespace,
-					PodName:   job.Name,
-					Status:    string(jobStatus.Type),
-				})
+	var allJobs []ContainerInfo
+	listOptions := metav1.ListOptions{Limit: 100}
+
+	for {
+		jobList, err := clientset.BatchV1().Jobs(namespace).List(ctx, listOptions)
+		if err != nil {
+			utils.LogWithFields(logrus.ErrorLevel, []string{}, "Error retrieving jobs", err)
+			return nil, err
+		}
+
+		for _, job := range jobList.Items {
+			for _, jobStatus := range job.Status.Conditions {
+				if utils.Contains(statuses, string(jobStatus.Type)) {
+					allJobs = append(allJobs, ContainerInfo{
+						Namespace: job.Namespace,
+						PodName:   job.Name,
+						Status:    string(jobStatus.Type),
+					})
+				}
 			}
 		}
+
+		if jobList.Continue == "" {
+			break
+		}
+		listOptions.Continue = jobList.Continue
 	}
-	return jobsList, nil
+
+	return allJobs, nil
 }
 
 // DeleteJobs deletes the specified jobs from the given namespace and logs the actions taken.
