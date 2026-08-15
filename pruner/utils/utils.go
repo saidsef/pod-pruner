@@ -89,9 +89,18 @@ func LogWithFields(level logrus.Level, fields []string, message string, errs ...
 		}
 	}
 
-	// If there's an error, add it to the fields
+	// An error carries no exported fields, so the JSON formatter renders it as
+	// {} and the message is lost. Stringify before adding it to the entry.
 	if len(errs) > 0 {
-		logFields["error"] = errs
+		messages := make([]string, 0, len(errs))
+		for _, err := range errs {
+			if err != nil {
+				messages = append(messages, err.Error())
+			}
+		}
+		if len(messages) > 0 {
+			logFields["error"] = strings.Join(messages, "; ")
+		}
 	}
 
 	// Log based on the level
