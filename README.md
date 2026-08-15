@@ -52,8 +52,27 @@ The application requires certain environment variables to be set:
 - `DRY_RUN`: Set to `"true"` to enable dry-run mode (default is `"true"`).
 - `RESOURCES`: A comma-separated list of Kubernetes resources (default is `"PODS"`)
 - `NAMESPACES`: A comma-separated list of namespaces to monitor for containers to prune.
-- `CONTAINER_STATUSES`: A comma-separated list of container statuses to filter by (e.g., `Error,ContainerStatusUnknown,Unknown,Completed`).
+- `CONTAINER_STATUSES`: A comma-separated list of container status reasons to filter by (e.g., `Error,ContainerStatusUnknown,Unknown,Completed`). Required - there is no default, and an unset or empty value is an error. See [Container statuses](#container-statuses) for the values that can match.
 - `JOB_STATUSES`: A comma-separated list of jobs statuses to filter by (default is `Complete`).
+
+### Container statuses
+
+Each entry is matched literally against a container's `state.waiting.reason` or `state.terminated.reason`. These are free-form strings in the Kubernetes API, set by the kubelet and the container runtime, so an entry that neither of them emits is ignored without error.
+
+Waiting reasons, all set by the kubelet:
+
+`ContainerCreating`, `PodInitializing`, `CrashLoopBackOff`, `ErrImagePull`, `ImagePullBackOff`, `ImageInspectError`, `ErrImageNeverPull`, `InvalidImageName`, `CreateContainerConfigError`, `PreCreateHookError`, `CreateContainerError`, `PreStartHookError`, `PostStartHookError`, `RunContainerError`.
+
+Terminated reasons:
+
+| Reason | Emitted by |
+| --- | --- |
+| `Completed`, `Error`, `OOMKilled` | containerd, CRI-O |
+| `ContainerStatusUnknown` | kubelet, when a container cannot be located |
+| `Unknown`, `StartError` | containerd |
+| `seccomp killed` | CRI-O |
+
+Pod-level reasons such as `Evicted`, `DeadlineExceeded` and `NodeAffinity` live on `pod.status.reason`, not on a container status, and so never match. The same applies to health statuses reported by other tooling, for example Argo CD's `Degraded`.
 
 Example of setting environment variables in a Kubernetes deployment spec:
 
