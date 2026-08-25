@@ -69,3 +69,12 @@ spec:
       securityContext: {}
       serviceAccountName: pod-pruner
       terminationGracePeriodSeconds: 30
+      tolerations:
+        - key: kubernetes.io/arch
+          operator: Equal
+          value: amd64
+          effect: PreferNoSchedule
+        - key: kubernetes.io/arch
+          operator: Equal
+          value: arm64
+          effect: PreferNoSchedule
