@@ -50,3 +50,34 @@ func TestGetEnvBool(t *testing.T) {
 		})
 	}
 }
+
+func TestSplitAndTrim(t *testing.T) {
+	cases := []struct {
+		name  string
+		value string
+		want  []string
+	}{
+		{"empty is no entries", "", nil},
+		{"whitespace only is no entries", "   ", nil},
+		{"separators only is no entries", ",,,", nil},
+		{"single entry", "argocd", []string{"argocd"}},
+		{"padded entries", "argocd, tekton", []string{"argocd", "tekton"}},
+		{"trailing separator", "Error,", []string{"Error"}},
+		{"inner blank dropped", "Error,,Completed", []string{"Error", "Completed"}},
+		{"tabs and newlines", "Error,\tCompleted\n", []string{"Error", "Completed"}},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := SplitAndTrim(c.value)
+			if len(got) != len(c.want) {
+				t.Fatalf("SplitAndTrim(%q) = %q, want %q", c.value, got, c.want)
+			}
+			for i := range got {
+				if got[i] != c.want[i] {
+					t.Fatalf("SplitAndTrim(%q) = %q, want %q", c.value, got, c.want)
+				}
+			}
+		})
+	}
+}

@@ -19,7 +19,6 @@ package resources
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -45,7 +44,7 @@ const deleteConcurrency = 10
 // - A slice of ContainerInfo, each representing a job description with namespace, pod name, and status.
 // - An error if any occurs during the retrieval of jobs.
 func GetJobs(clientset kubernetes.Interface, namespace string, log *logrus.Logger) ([]ContainerInfo, error) {
-	statuses := strings.Split(strings.TrimSpace(utils.GetEnv("JOB_STATUSES", "Complete", log)), ",")
+	statuses := utils.SplitAndTrim(utils.GetEnv("JOB_STATUSES", "Complete", log))
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 

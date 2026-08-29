@@ -19,7 +19,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/saidsef/pod-pruner/pruner/internal/auth"
@@ -38,10 +37,13 @@ func main() {
 	log := utils.Logger()
 	// Deletion is destructive, so an unset or unparseable DRY_RUN stays in dry run.
 	dryRun := utils.GetEnvBool("DRY_RUN", true, log)
-	// Split the NAMESPACES environment variable into a slice.
-	NAMESPACES := strings.Split(os.Getenv("NAMESPACES"), ",")
-	// Split the RESOURCES environment variable into a slice, defaulting to "PODS".
-	RESOURCES := strings.Split(utils.GetEnv("RESOURCES", "PODS", log), ",")
+	// An empty namespace means every namespace to client-go, so refuse to start
+	// rather than prune the whole cluster on a missing variable.
+	NAMESPACES := utils.SplitAndTrim(os.Getenv("NAMESPACES"))
+	if len(NAMESPACES) == 0 {
+		utils.LogWithFields(logrus.FatalLevel, []string{}, "NAMESPACES environment variable is not set or empty, refusing to run against every namespace")
+	}
+	RESOURCES := utils.SplitAndTrim(utils.GetEnv("RESOURCES", "PODS", log))
 
 	// Create a new Kubernetes client manager.
 	k8sManager := auth.NewKubernetesClientManager(log)
