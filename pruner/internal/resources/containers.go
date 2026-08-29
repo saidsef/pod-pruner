@@ -66,20 +66,8 @@ func GetContainers(clientset *kubernetes.Clientset, namespace string) ([]Contain
 		}
 
 		for _, pod := range podList.Items {
-			for _, containerStatus := range pod.Status.ContainerStatuses {
-				if isContainerInState(containerStatus, statuses) {
-					var statusReason string
-					if containerStatus.State.Waiting != nil {
-						statusReason = containerStatus.State.Waiting.Reason
-					} else if containerStatus.State.Terminated != nil {
-						statusReason = containerStatus.State.Terminated.Reason
-					}
-					containers = append(containers, ContainerInfo{
-						Namespace: pod.Namespace,
-						PodName:   pod.Name,
-						Status:    statusReason,
-					})
-				}
+			if candidate, matched := pruneCandidate(pod, statuses); matched {
+				containers = append(containers, candidate)
 			}
 		}
 
@@ -90,6 +78,49 @@ func GetContainers(clientset *kubernetes.Clientset, namespace string) ([]Contain
 	}
 
 	return containers, nil
+}
+
+// pruneCandidate reports whether any container in the pod is in one of the
+// given states, and describes the pod once if so. Deletion removes the whole
+// pod, so a pod with several matching containers still yields one candidate.
+//
+// Parameters:
+// - pod: The pod to inspect.
+// - statuses: A slice of strings representing the states to check against.
+//
+// Returns:
+// - A ContainerInfo naming the pod and the reason of the first matching container.
+// - A boolean reporting whether any container matched.
+func pruneCandidate(pod v1.Pod, statuses []string) (ContainerInfo, bool) {
+	for _, containerStatus := range pod.Status.ContainerStatuses {
+		if !isContainerInState(containerStatus, statuses) {
+			continue
+		}
+		return ContainerInfo{
+			Namespace: pod.Namespace,
+			PodName:   pod.Name,
+			Status:    matchedReason(containerStatus),
+		}, true
+	}
+	return ContainerInfo{}, false
+}
+
+// matchedReason returns the waiting or terminated reason carried by a container
+// status, whichever is set.
+//
+// Parameters:
+// - containerStatus: The status of the container to read.
+//
+// Returns:
+// - The reason string, or an empty string if the container is running.
+func matchedReason(containerStatus v1.ContainerStatus) string {
+	if containerStatus.State.Waiting != nil {
+		return containerStatus.State.Waiting.Reason
+	}
+	if containerStatus.State.Terminated != nil {
+		return containerStatus.State.Terminated.Reason
+	}
+	return ""
 }
 
 // isContainerInState checks if the given container status is in one of the specified states.
