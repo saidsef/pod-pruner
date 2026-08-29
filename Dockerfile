@@ -1,10 +1,15 @@
 # Build
 FROM golang:1.26 AS build
 WORKDIR /app
-ENV CGO_ENABLED=0 GOOS=linux
+ENV CGO_ENABLED=0 GOOS=linux GOFLAGS=-mod=readonly
+
+# Dependencies resolve from the committed go.mod and go.sum, and cache as their
+# own layer, so a source-only change does not refetch the module graph.
+COPY go.mod go.sum ./
+RUN go mod download
+
 COPY ./ ./
-RUN go mod tidy && \
-    go build -v -ldflags "-s -w" -trimpath -buildvcs -compiler gc -o ./pod-pruner ./pruner/pruner.go
+RUN go build -v -ldflags "-s -w" -trimpath -buildvcs -compiler gc -o ./pod-pruner ./pruner/pruner.go
 
 # Application
 FROM scratch
