@@ -30,18 +30,21 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+// deleteConcurrency caps how many job deletions are in flight at once.
+const deleteConcurrency = 10
+
 // GetJobs retrieves a list of jobs from the specified namespace that match the statuses defined in the JOB_STATUSES environment variable.
 // It returns a slice of job descriptions and an error if any occurs.
 //
 // Parameters:
-// - clientset: A Kubernetes clientset to interact with the Kubernetes API.
+// - clientset: A Kubernetes client interface to interact with the Kubernetes API.
 // - namespace: The namespace from which to retrieve the jobs.
 // - log: A logger to log messages.
 //
 // Returns:
 // - A slice of ContainerInfo, each representing a job description with namespace, pod name, and status.
 // - An error if any occurs during the retrieval of jobs.
-func GetJobs(clientset *kubernetes.Clientset, namespace string, log *logrus.Logger) ([]ContainerInfo, error) {
+func GetJobs(clientset kubernetes.Interface, namespace string, log *logrus.Logger) ([]ContainerInfo, error) {
 	statuses := strings.Split(strings.TrimSpace(utils.GetEnv("JOB_STATUSES", "Complete", log)), ",")
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -80,27 +83,47 @@ func GetJobs(clientset *kubernetes.Clientset, namespace string, log *logrus.Logg
 // DeleteJobs deletes the specified jobs from the given namespace and logs the actions taken.
 //
 // Parameters:
-// - clientset: A Kubernetes clientset to interact with the Kubernetes API.
+// - clientset: A Kubernetes client interface to interact with the Kubernetes API.
 // - jobs: A slice of ContainerInfo, each representing a job description with namespace, pod name, and status.
 // - log: A logger to log messages.
-func DeleteJobs(clientset *kubernetes.Clientset, jobs []ContainerInfo, log *logrus.Logger) {
+func DeleteJobs(clientset kubernetes.Interface, jobs []ContainerInfo, log *logrus.Logger) {
+	forEachBounded(jobs, deleteConcurrency, func(job ContainerInfo) {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		propagationPolicy := metav1.DeletePropagationBackground
+		fields := []string{fmt.Sprintf("job:%s", job.PodName), fmt.Sprintf("namespace:%s", job.Namespace)}
+
+		if err := clientset.BatchV1().Jobs(job.Namespace).Delete(ctx, job.PodName, metav1.DeleteOptions{PropagationPolicy: &propagationPolicy}); err != nil {
+			utils.LogWithFields(logrus.ErrorLevel, fields, "Failed to delete job", err)
+			return
+		}
+		metrics.JobsPruned.WithLabelValues(job.Namespace, job.Status).Add(1) // Increment the counter
+		utils.LogWithFields(logrus.InfoLevel, fields, "Successfully deleted job")
+	})
+}
+
+// forEachBounded runs fn over every item, at most limit at a time, and returns
+// once they have all finished. Every call queues behind one client-side rate
+// limiter, so an unbounded fan-out only means the later goroutines spend their
+// timeout waiting for a token rather than talking to the API server.
+//
+// Parameters:
+// - items: The items to visit.
+// - limit: The greatest number of concurrent calls to fn.
+// - fn: The function to run for each item.
+func forEachBounded(items []ContainerInfo, limit int, fn func(ContainerInfo)) {
 	var wg sync.WaitGroup
-	for _, job := range jobs {
-		job := job // Create local copy to avoid closure variable capture bug
+	tokens := make(chan struct{}, limit)
+
+	for _, item := range items {
 		wg.Add(1)
-		go func(job *ContainerInfo) {
+		tokens <- struct{}{}
+		go func(item ContainerInfo) {
 			defer wg.Done()
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			defer cancel()
-			propagationPolicy := metav1.DeletePropagationBackground
-			err := clientset.BatchV1().Jobs(job.Namespace).Delete(ctx, job.PodName, metav1.DeleteOptions{PropagationPolicy: &propagationPolicy})
-			if err != nil {
-				utils.LogWithFields(logrus.ErrorLevel, []string{fmt.Sprintf("job:%s", job.PodName)}, "Failed to delete job", err)
-			} else {
-				metrics.JobsPruned.WithLabelValues(job.Namespace, job.Status).Add(1) // Increment the counter
-				utils.LogWithFields(logrus.InfoLevel, []string{fmt.Sprintf("job:%s", job.PodName)}, "Successfully deleted job")
-			}
-		}(&job)
+			defer func() { <-tokens }()
+			fn(item)
+		}(item)
 	}
 	wg.Wait()
 }
