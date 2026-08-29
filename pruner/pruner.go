@@ -112,33 +112,37 @@ func main() {
 // - log: A pointer to a logrus.Logger instance for logging purposes.
 // - clientset: A pointer to a Kubernetes Clientset for interacting with the Kubernetes API.
 func handlePruning(resourceType string, items []resources.ContainerInfo, dryRun bool, log *logrus.Logger, clientset *kubernetes.Clientset) {
-	var values []string
-	for _, item := range items {
-		values = append(values, item.Namespace, item.PodName, item.Status)
-	}
-	if len(items) > 0 {
-		if dryRun {
-			utils.LogWithFields(
-				logrus.InfoLevel,
-				values,
-				fmt.Sprintf("Dry run mode. The following %s would be deleted", resourceType),
-			)
-		} else {
-			utils.LogWithFields(logrus.InfoLevel,
-				values,
-				fmt.Sprintf("%s to be pruned", resourceType))
-			if resourceType == "containers" {
-				resources.DeleteContainers(clientset, items, log)
-			} else if resourceType == "jobs" {
-				resources.DeleteJobs(clientset, items, log)
-			}
-		}
-
-	} else {
-		utils.LogWithFields(
+	if len(items) == 0 {
+		utils.LogWithMap(
 			logrus.InfoLevel,
-			values,
+			logrus.Fields{"count": 0},
 			fmt.Sprintf("No %s to prune", resourceType),
 		)
+		return
+	}
+
+	names := make([]string, 0, len(items))
+	for _, item := range items {
+		names = append(names, fmt.Sprintf("%s/%s (%s)", item.Namespace, item.PodName, item.Status))
+	}
+	// One field holding the whole list, because logrus.Fields is a map and a
+	// field per attribute would leave only the last item.
+	fields := logrus.Fields{"count": len(items), resourceType: names}
+
+	if dryRun {
+		utils.LogWithMap(
+			logrus.InfoLevel,
+			fields,
+			fmt.Sprintf("Dry run mode. The following %s would be deleted", resourceType),
+		)
+		return
+	}
+
+	utils.LogWithMap(logrus.InfoLevel, fields, fmt.Sprintf("%s to be pruned", resourceType))
+	switch resourceType {
+	case "containers":
+		resources.DeleteContainers(clientset, items, log)
+	case "jobs":
+		resources.DeleteJobs(clientset, items, log)
 	}
 }
