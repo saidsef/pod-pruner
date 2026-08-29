@@ -38,14 +38,14 @@ import (
 // If there is an error while listing the pods, it returns an error with context.
 //
 // Parameters:
-// - clientset: A Kubernetes clientset used to interact with the Kubernetes API.
+// - clientset: A Kubernetes client interface used to interact with the Kubernetes API.
 // - namespace: The namespace from which to retrieve the pods.
 //
 // Returns:
 // - A slice of ContainerInfo containing the names of the containers in the specified states.
 // - An error if the environment variable is not set, empty, or if there is an error
 // while listing the pods.
-func GetContainers(clientset *kubernetes.Clientset, namespace string) ([]ContainerInfo, error) {
+func GetContainers(clientset kubernetes.Interface, namespace string) ([]ContainerInfo, error) {
 	statuses := strings.Split(os.Getenv("CONTAINER_STATUSES"), ",")
 	if len(statuses) == 0 || (len(statuses) == 1 && statuses[0] == "") {
 		return nil, fmt.Errorf("CONTAINER_STATUSES environment variable is not set or empty")
@@ -156,10 +156,10 @@ func isContainerInState(containerStatus v1.ContainerStatus, statuses []string) b
 // If a pod deletion fails, it logs an error; otherwise, it logs a success message.
 //
 // Parameters:
-// - clientset: A Kubernetes clientset used to interact with the Kubernetes API.
+// - clientset: A Kubernetes client interface used to interact with the Kubernetes API.
 // - containers: A slice of ContainerInfo containing the names of the containers to delete.
 // - log: A logger used to log messages regarding the deletion process.
-func DeleteContainers(clientset *kubernetes.Clientset, containers []ContainerInfo, log *logrus.Logger) {
+func DeleteContainers(clientset kubernetes.Interface, containers []ContainerInfo, log *logrus.Logger) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -177,6 +177,7 @@ func DeleteContainers(clientset *kubernetes.Clientset, containers []ContainerInf
 				fmt.Sprintf("pod:%s", container.PodName),
 				fmt.Sprintf("namespace:%s", container.Namespace),
 			}
+			metrics.PodsPruned.WithLabelValues(container.Namespace, container.Status).Add(1)
 			metrics.ContainersPruned.WithLabelValues(container.Namespace, container.Status).Add(1) // Increment the counter
 			utils.LogWithFields(logrus.InfoLevel, message, "Successfully deleted pod")
 		}

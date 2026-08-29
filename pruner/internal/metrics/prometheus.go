@@ -38,7 +38,9 @@ var (
 		[]string{"namespace", "state"},
 	)
 
-	// ContainersPruned counts the total number of containers pruned, labelled by namespace.
+	// ContainersPruned carries the same series as PodsPruned. Pruning removes a
+	// whole pod rather than a container, so it is kept only for dashboards that
+	// already read it. Prefer pods_pruned_total.
 	ContainersPruned = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "containers_pruned_total",
