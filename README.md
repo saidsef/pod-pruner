@@ -54,6 +54,7 @@ The application requires certain environment variables to be set:
 - `NAMESPACES`: A comma-separated list of namespaces to monitor for containers to prune. Required - there is no default, and an unset or empty value stops the application at startup rather than defaulting to every namespace in the cluster.
 - `CONTAINER_STATUSES`: A comma-separated list of container status reasons to filter by (e.g., `Error,ContainerStatusUnknown,Unknown,Completed`). Required - there is no default, and an unset or empty value is an error. See [Container statuses](#container-statuses) for the values that can match.
 - `JOB_STATUSES`: A comma-separated list of jobs statuses to filter by (default is `Complete`).
+- `INTERVAL`: How often to sweep, as a Go duration such as `90s` or `2m` (default is `120s`). A value that is not a positive duration falls back to the default.
 
 ### Container statuses
 
@@ -82,13 +83,13 @@ kubectl apply -k deployment/ -n pod-pruner
 
 ## Usage
 
-Once the application is deployed, it will start monitoring the specified namespaces every `60 seconds`. It will log the containers that are eligible for pruning based on their statuses. If dry-run mode is disabled, it will proceed to delete the identified containers.
+Once the application is deployed, it will sweep the specified namespaces immediately and then every `INTERVAL`, which defaults to `120s`. It will log the containers that are eligible for pruning based on their statuses. If dry-run mode is disabled, it will proceed to delete the identified containers.
 
 ## How It Works
 
 1. **Environment Variables**: The application retrieves configuration values from environment variables.
 2. **Kubernetes Client**: It creates a Kubernetes client using in-cluster configuration to interact with the Kubernetes API.
-3. **Container Monitoring**: Every 60 seconds, it checks the specified namespaces for containers that are in the defined states (e.g., `Waiting`, `Terminated`).
+3. **Container Monitoring**: On startup and then every `INTERVAL`, it checks the specified namespaces for containers that are in the defined states (e.g., `Waiting`, `Terminated`).
 4. **Pruning Logic**: If containers are found, it either logs the containers that would be deleted (in dry-run mode) or deletes them from the cluster.
 
 ## Metrics
