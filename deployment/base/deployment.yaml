@@ -49,6 +49,10 @@ spec:
           image: 'ghcr.io/saidsef/pod-pruner:latest'
           imagePullPolicy: Always
           name: pod-pruner
+          ports:
+            - name: metrics
+              containerPort: 8080
+              protocol: TCP
           resources:
             limits:
               cpu: 10m
@@ -66,7 +70,9 @@ spec:
             runAsNonRoot: true
             runAsUser: 1000
       dnsPolicy: ClusterFirst
-      securityContext: {}
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       serviceAccountName: pod-pruner
       terminationGracePeriodSeconds: 30
       tolerations:
