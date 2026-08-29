@@ -26,6 +26,7 @@ import (
 	"github.com/saidsef/pod-pruner/pruner/internal/resources"
 	"github.com/saidsef/pod-pruner/pruner/utils"
 	"github.com/sirupsen/logrus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -40,11 +41,11 @@ func main() {
 	log := utils.Logger()
 	// Deletion is destructive, so an unset or unparseable DRY_RUN stays in dry run.
 	dryRun := utils.GetEnvBool("DRY_RUN", true, log)
-	// An empty namespace means every namespace to client-go, so refuse to start
-	// rather than prune the whole cluster on a missing variable.
+	// client-go reads an empty namespace as every namespace, so an unset
+	// NAMESPACES sweeps the whole cluster.
 	NAMESPACES := utils.SplitAndTrim(os.Getenv("NAMESPACES"))
 	if len(NAMESPACES) == 0 {
-		utils.LogWithFields(logrus.FatalLevel, []string{}, "NAMESPACES environment variable is not set or empty, refusing to run against every namespace")
+		NAMESPACES = []string{metav1.NamespaceAll}
 	}
 	RESOURCES := utils.SplitAndTrim(utils.GetEnv("RESOURCES", "PODS", log))
 
@@ -61,7 +62,11 @@ func main() {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	utils.LogWithMap(logrus.InfoLevel, logrus.Fields{"resources": RESOURCES, "namespaces": NAMESPACES, "interval": interval.String(), "dryRun": dryRun}, "Starting pruner")
+	namespaceLabels := make([]string, 0, len(NAMESPACES))
+	for _, namespace := range NAMESPACES {
+		namespaceLabels = append(namespaceLabels, utils.NamespaceLabel(namespace))
+	}
+	utils.LogWithMap(logrus.InfoLevel, logrus.Fields{"resources": RESOURCES, "namespaces": namespaceLabels, "interval": interval.String(), "dryRun": dryRun}, "Starting pruner")
 
 	// Sweep on start rather than waiting out the first tick, so a restarted
 	// pruner does useful work immediately.
@@ -75,7 +80,7 @@ func main() {
 //
 // Parameters:
 // - clientset: A pointer to a Kubernetes Clientset for interacting with the Kubernetes API.
-// - namespaces: The namespaces to inspect.
+// - namespaces: The namespaces to inspect. A single empty entry means every namespace.
 // - resourceTypes: The resource types to prune, such as PODS and JOBS.
 // - dryRun: Whether to log the resources instead of deleting them.
 // - log: A pointer to a logrus.Logger instance for logging purposes.
@@ -88,7 +93,7 @@ func sweep(clientset *kubernetes.Clientset, namespaces, resourceTypes []string, 
 			if err != nil {
 				utils.LogWithFields(
 					logrus.ErrorLevel,
-					[]string{fmt.Sprintf("namespace:%s", namespace)},
+					[]string{fmt.Sprintf("namespace:%s", utils.NamespaceLabel(namespace))},
 					"Error fetching containers",
 					err,
 				)
@@ -106,7 +111,7 @@ func sweep(clientset *kubernetes.Clientset, namespaces, resourceTypes []string, 
 			if err != nil {
 				utils.LogWithFields(
 					logrus.ErrorLevel,
-					[]string{fmt.Sprintf("namespace:%s", namespace)},
+					[]string{fmt.Sprintf("namespace:%s", utils.NamespaceLabel(namespace))},
 					"Error fetching jobs",
 					err,
 				)

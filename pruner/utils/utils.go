@@ -234,3 +234,18 @@ func Logger() *logrus.Logger {
 	})
 	return logger
 }
+
+// NamespaceLabel renders a namespace for logs and errors. client-go spells
+// "every namespace" as the empty string, which otherwise reads as a missing value.
+//
+// Parameters:
+// - namespace: The namespace to render.
+//
+// Returns:
+// - The namespace, or "*" where it is the empty string.
+func NamespaceLabel(namespace string) string {
+	if namespace == "" {
+		return "*"
+	}
+	return namespace
+}

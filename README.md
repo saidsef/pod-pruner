@@ -7,11 +7,11 @@
 ![Commits](https://img.shields.io/github/commits-since/saidsef/pod-pruner/latest.svg)
 ![GitHub](https://img.shields.io/github/license/saidsef/pod-pruner)
 
-This is a Kubernetes application written in Go (Golang) that periodically prunes containers in specified namespaces based on their statuses. The application can operate in a dry-run mode, allowing you to see which containers would be deleted without actually removing them.
+This is a Kubernetes application written in Go (Golang) that periodically prunes containers based on their statuses, in the namespaces you name or across every namespace in the cluster. The application can operate in a dry-run mode, allowing you to see which containers would be deleted without actually removing them.
 
 ## What is the use case
 
-This application efficiently manages Kubernetes environments by periodically removing unnecessary containers from specified namespaces based on their statuses, thereby freeing up resources. It includes a dry-run mode for users to preview which containers would be pruned without executing the deletion. This optimises resource usage and ensures a cleaner, more manageable cluster, while providing metrics via the `/metrics` endpoint.
+This application efficiently manages Kubernetes environments by periodically removing unnecessary containers based on their statuses, from the namespaces you name or from every namespace in the cluster, thereby freeing up resources. It includes a dry-run mode for users to preview which containers would be pruned without executing the deletion. This optimises resource usage and ensures a cleaner, more manageable cluster, while providing metrics via the `/metrics` endpoint.
 
 ## Alternatives
 
@@ -51,7 +51,7 @@ The application requires certain environment variables to be set:
 
 - `DRY_RUN`: Set to `"true"` to enable dry-run mode (default is `"true"`).
 - `RESOURCES`: A comma-separated list of Kubernetes resources (default is `"PODS"`)
-- `NAMESPACES`: A comma-separated list of namespaces to monitor for containers to prune. Required - there is no default, and an unset or empty value stops the application at startup rather than defaulting to every namespace in the cluster.
+- `NAMESPACES`: A comma-separated list of namespaces to monitor for containers to prune. Unset or empty means every namespace in the cluster, which needs the `ClusterRole` and `ClusterRoleBinding` in `deployment/base/`. Namespaces are logged as `*` when the pruner runs cluster-wide.
 - `CONTAINER_STATUSES`: A comma-separated list of container status reasons to filter by (e.g., `Error,ContainerStatusUnknown,Unknown,Completed`). Required - there is no default, and an unset or empty value is an error. See [Container statuses](#container-statuses) for the values that can match.
 - `JOB_STATUSES`: A comma-separated list of jobs statuses to filter by (default is `Complete`).
 - `INTERVAL`: How often to sweep, as a Go duration such as `90s` or `2m` (default is `120s`). A value that is not a positive duration falls back to the default.
@@ -83,13 +83,13 @@ kubectl apply -k deployment/ -n pod-pruner
 
 ## Usage
 
-Once the application is deployed, it will sweep the specified namespaces immediately and then every `INTERVAL`, which defaults to `120s`. It will log the containers that are eligible for pruning based on their statuses. If dry-run mode is disabled, it will proceed to delete the identified containers.
+Once the application is deployed, it will sweep the configured namespaces immediately and then every `INTERVAL`, which defaults to `120s`. With `NAMESPACES` unset it sweeps every namespace in the cluster. It will log the containers that are eligible for pruning based on their statuses. If dry-run mode is disabled, it will proceed to delete the identified containers.
 
 ## How It Works
 
 1. **Environment Variables**: The application retrieves configuration values from environment variables.
 2. **Kubernetes Client**: It creates a Kubernetes client using in-cluster configuration to interact with the Kubernetes API.
-3. **Container Monitoring**: On startup and then every `INTERVAL`, it checks the specified namespaces for containers that are in the defined states (e.g., `Waiting`, `Terminated`).
+3. **Container Monitoring**: On startup and then every `INTERVAL`, it checks the configured namespaces - or every namespace, where `NAMESPACES` is unset - for containers that are in the defined states (e.g., `Waiting`, `Terminated`).
 4. **Pruning Logic**: If containers are found, it either logs the containers that would be deleted (in dry-run mode) or deletes them from the cluster.
 
 ## Metrics
