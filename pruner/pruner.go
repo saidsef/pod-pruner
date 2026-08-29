@@ -36,8 +36,8 @@ import (
 // defined namespaces at regular intervals.
 func main() {
 	log := utils.Logger()
-	// Retrieve the dry run mode from environment variables, defaulting to "true".
-	dryRun := utils.GetEnv("DRY_RUN", "true", log)
+	// Deletion is destructive, so an unset or unparseable DRY_RUN stays in dry run.
+	dryRun := utils.GetEnvBool("DRY_RUN", true, log)
 	// Split the NAMESPACES environment variable into a slice.
 	NAMESPACES := strings.Split(os.Getenv("NAMESPACES"), ",")
 	// Split the RESOURCES environment variable into a slice, defaulting to "PODS".
@@ -106,16 +106,16 @@ func main() {
 // Parameters:
 // - resourceType: A string indicating the type of resource being pruned (e.g., "containers" or "jobs").
 // - items: A slice of ContainerInfo representing the resource identifiers to be pruned.
-// - dryRun: A string indicating whether the operation is a dry run ("true" or "false").
+// - dryRun: Whether to log the resources instead of deleting them.
 // - log: A pointer to a logrus.Logger instance for logging purposes.
 // - clientset: A pointer to a Kubernetes Clientset for interacting with the Kubernetes API.
-func handlePruning(resourceType string, items []resources.ContainerInfo, dryRun string, log *logrus.Logger, clientset *kubernetes.Clientset) {
+func handlePruning(resourceType string, items []resources.ContainerInfo, dryRun bool, log *logrus.Logger, clientset *kubernetes.Clientset) {
 	var values []string
 	for _, item := range items {
 		values = append(values, item.Namespace, item.PodName, item.Status)
 	}
 	if len(items) > 0 {
-		if dryRun == "true" {
+		if dryRun {
 			utils.LogWithFields(
 				logrus.InfoLevel,
 				values,
