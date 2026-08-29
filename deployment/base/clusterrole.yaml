@@ -3,7 +3,7 @@ kind: ClusterRole
 metadata:
   name: pod-pruner
   labels:
-    app.kubernetes.net/name: pod-pruner
+    app.kubernetes.io/name: pod-pruner
 rules:
   - apiGroups: ['']
     resources: ['pods']

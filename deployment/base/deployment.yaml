@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app.kubernetes.net/name: pod-pruner
+    app.kubernetes.io/name: pod-pruner
   name: pod-pruner
 spec:
   progressDeadlineSeconds: 600
@@ -10,7 +10,7 @@ spec:
   revisionHistoryLimit: 2
   selector:
     matchLabels:
-      app.kubernetes.net/name: pod-pruner
+      app.kubernetes.io/name: pod-pruner
   strategy:
     rollingUpdate:
       maxSurge: 25%
@@ -19,7 +19,7 @@ spec:
   template:
     metadata:
       labels:
-        app.kubernetes.net/name: pod-pruner
+        app.kubernetes.io/name: pod-pruner
       annotations:
         prometheus.io/port: "8080"
         prometheus.io/scrape: "true"
