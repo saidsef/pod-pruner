@@ -29,6 +29,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+// defaultInterval is how often the pruner sweeps when INTERVAL is unset.
+const defaultInterval = 120 * time.Second
+
 // main is the entry point of the application. It sets up logging,
 // retrieves environment variables, and initiates a Kubernetes client
 // manager to prune specified resources (containers and jobs) in the
@@ -54,51 +57,64 @@ func main() {
 		utils.LogWithFields(logrus.FatalLevel, []string{}, "Kubernetes config error", err)
 	}
 
-	// Set up a ticker to trigger every 120 seconds.
-	ticker := time.NewTicker(120 * time.Second)
+	interval := utils.GetEnvDuration("INTERVAL", defaultInterval, log)
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	utils.LogWithFields(logrus.InfoLevel, RESOURCES, "Resources to include in pruner")
+	utils.LogWithMap(logrus.InfoLevel, logrus.Fields{"resources": RESOURCES, "namespaces": NAMESPACES, "interval": interval.String(), "dryRun": dryRun}, "Starting pruner")
 
-	// Main loop that runs every tick.
+	// Sweep on start rather than waiting out the first tick, so a restarted
+	// pruner does useful work immediately.
+	sweep(clientset, NAMESPACES, RESOURCES, dryRun, log)
 	for range ticker.C {
-		// Iterate over each namespace defined in the environment variable.
-		for _, namespace := range NAMESPACES {
-			// Check if "PODS" is included in the resources to prune.
-			if utils.Contains(RESOURCES, "PODS") {
-				// Fetch containers in the current namespace.
-				containers, err := resources.GetContainers(clientset, namespace)
-				if err != nil {
-					utils.LogWithFields(
-						logrus.ErrorLevel,
-						[]string{fmt.Sprintf("namespace:%s", namespace)},
-						"Error fetching containers",
-						err,
-					)
-					continue
-				}
+		sweep(clientset, NAMESPACES, RESOURCES, dryRun, log)
+	}
+}
 
-				// Handle pruning logic for containers.
-				handlePruning("containers", containers, dryRun, log, clientset)
+// sweep walks every namespace once, pruning the resource types that are enabled.
+//
+// Parameters:
+// - clientset: A pointer to a Kubernetes Clientset for interacting with the Kubernetes API.
+// - namespaces: The namespaces to inspect.
+// - resourceTypes: The resource types to prune, such as PODS and JOBS.
+// - dryRun: Whether to log the resources instead of deleting them.
+// - log: A pointer to a logrus.Logger instance for logging purposes.
+func sweep(clientset *kubernetes.Clientset, namespaces, resourceTypes []string, dryRun bool, log *logrus.Logger) {
+	for _, namespace := range namespaces {
+		// Check if "PODS" is included in the resources to prune.
+		if utils.Contains(resourceTypes, "PODS") {
+			// Fetch containers in the current namespace.
+			containers, err := resources.GetContainers(clientset, namespace)
+			if err != nil {
+				utils.LogWithFields(
+					logrus.ErrorLevel,
+					[]string{fmt.Sprintf("namespace:%s", namespace)},
+					"Error fetching containers",
+					err,
+				)
+				continue
 			}
 
-			// Check if "JOBS" is included in the resources to prune.
-			if utils.Contains(RESOURCES, "JOBS") {
-				// Fetch jobs in the current namespace.
-				jobs, err := resources.GetJobs(clientset, namespace, log)
-				if err != nil {
-					utils.LogWithFields(
-						logrus.ErrorLevel,
-						[]string{fmt.Sprintf("namespace:%s", namespace)},
-						"Error fetching jobs",
-						err,
-					)
-					continue
-				}
+			// Handle pruning logic for containers.
+			handlePruning("containers", containers, dryRun, log, clientset)
+		}
 
-				// Handle pruning logic for jobs.
-				handlePruning("jobs", jobs, dryRun, log, clientset)
+		// Check if "JOBS" is included in the resources to prune.
+		if utils.Contains(resourceTypes, "JOBS") {
+			// Fetch jobs in the current namespace.
+			jobs, err := resources.GetJobs(clientset, namespace, log)
+			if err != nil {
+				utils.LogWithFields(
+					logrus.ErrorLevel,
+					[]string{fmt.Sprintf("namespace:%s", namespace)},
+					"Error fetching jobs",
+					err,
+				)
+				continue
 			}
+
+			// Handle pruning logic for jobs.
+			handlePruning("jobs", jobs, dryRun, log, clientset)
 		}
 	}
 }

@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -70,6 +71,37 @@ func GetEnvBool(key string, defaultValue bool, log *logrus.Logger) bool {
 	parsed, err := strconv.ParseBool(strings.TrimSpace(value))
 	if err != nil {
 		log.Errorf("%s environment variable is %q, which is not a boolean, defaulting to %t", key, value, defaultValue)
+		return defaultValue
+	}
+	return parsed
+}
+
+// GetEnvDuration retrieves the environment variable specified by key and parses
+// it as a Go duration, such as "90s" or "2m". If the variable is not set, holds
+// a value time.ParseDuration cannot read, or is not positive, it returns
+// defaultValue and logs the reason.
+//
+// Parameters:
+// - key: The name of the environment variable to retrieve.
+// - defaultValue: The value to return if the variable is unset or unusable.
+// - log: A logger instance for logging warnings and errors.
+//
+// Returns:
+// - The parsed duration, or defaultValue.
+func GetEnvDuration(key string, defaultValue time.Duration, log *logrus.Logger) time.Duration {
+	value, exists := os.LookupEnv(key)
+	if !exists {
+		log.Warnf("%s environment variable not set, defaulting to %s", key, defaultValue)
+		return defaultValue
+	}
+
+	parsed, err := time.ParseDuration(strings.TrimSpace(value))
+	if err != nil {
+		log.Errorf("%s environment variable is %q, which is not a duration, defaulting to %s", key, value, defaultValue)
+		return defaultValue
+	}
+	if parsed <= 0 {
+		log.Errorf("%s environment variable is %q, which is not positive, defaulting to %s", key, value, defaultValue)
 		return defaultValue
 	}
 	return parsed

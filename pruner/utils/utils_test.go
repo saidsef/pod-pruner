@@ -3,6 +3,7 @@ package utils
 import (
 	"os"
 	"testing"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"io"
@@ -77,6 +78,40 @@ func TestSplitAndTrim(t *testing.T) {
 				if got[i] != c.want[i] {
 					t.Fatalf("SplitAndTrim(%q) = %q, want %q", c.value, got, c.want)
 				}
+			}
+		})
+	}
+}
+
+func TestGetEnvDuration(t *testing.T) {
+	const fallback = 120 * time.Second
+
+	cases := []struct {
+		name  string
+		value string
+		set   bool
+		want  time.Duration
+	}{
+		{"unset falls back", "", false, fallback},
+		{"seconds", "90s", true, 90 * time.Second},
+		{"minutes", "2m", true, 2 * time.Minute},
+		{"padded", " 45s ", true, 45 * time.Second},
+		{"bare number is not a duration", "60", true, fallback},
+		{"nonsense falls back", "soon", true, fallback},
+		{"empty falls back", "", true, fallback},
+		{"zero falls back", "0s", true, fallback},
+		{"negative falls back", "-30s", true, fallback},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			os.Unsetenv("INTERVAL")
+			if c.set {
+				os.Setenv("INTERVAL", c.value)
+				defer os.Unsetenv("INTERVAL")
+			}
+			if got := GetEnvDuration("INTERVAL", fallback, quietLogger()); got != c.want {
+				t.Errorf("GetEnvDuration(%q) = %s, want %s", c.value, got, c.want)
 			}
 		})
 	}
