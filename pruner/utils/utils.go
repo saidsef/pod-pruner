@@ -137,6 +137,25 @@ func LogWithFields(level logrus.Level, fields []string, message string, errs ...
 		}
 	}
 
+	LogWithMap(level, logFields, message, errs...)
+}
+
+// LogWithMap logs a message with fields supplied as a logrus.Fields map. Use it
+// where a value is not a plain string, such as a list of resources or a count.
+//
+// Parameters:
+// - level: The log level at which to log the message (e.g., Error, Warn, Info, Debug).
+// - fields: The fields to attach to the log entry.
+// - message: The message to log.
+// - errs: Optional errors to include in the log entry.
+//
+// Returns:
+// - None. The function logs the message at the specified log level.
+func LogWithMap(level logrus.Level, fields logrus.Fields, message string, errs ...error) {
+	if fields == nil {
+		fields = logrus.Fields{}
+	}
+
 	// An error carries no exported fields, so the JSON formatter renders it as
 	// {} and the message is lost. Stringify before adding it to the entry.
 	if len(errs) > 0 {
@@ -147,24 +166,26 @@ func LogWithFields(level logrus.Level, fields []string, message string, errs ...
 			}
 		}
 		if len(messages) > 0 {
-			logFields["error"] = strings.Join(messages, "; ")
+			fields["error"] = strings.Join(messages, "; ")
 		}
 	}
+
+	entry := Logger().WithFields(fields)
 
 	// Log based on the level
 	switch level {
 	case logrus.ErrorLevel:
-		Logger().WithFields(logFields).Error(message)
+		entry.Error(message)
 	case logrus.FatalLevel:
-		Logger().WithFields(logFields).Fatal(message)
+		entry.Fatal(message)
 	case logrus.WarnLevel:
-		Logger().WithFields(logFields).Warn(message)
+		entry.Warn(message)
 	case logrus.DebugLevel:
-		Logger().WithFields(logFields).Debug(message)
+		entry.Debug(message)
 	case logrus.InfoLevel:
-		Logger().WithFields(logFields).Info(message)
+		entry.Info(message)
 	default:
-		Logger().WithFields(logFields).Info(message)
+		entry.Info(message)
 	}
 }
 
