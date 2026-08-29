@@ -18,6 +18,7 @@ package utils
 
 import (
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -46,6 +47,32 @@ func GetEnv(key, defaultValue string, log *logrus.Logger) string {
 		return defaultValue
 	}
 	return value
+}
+
+// GetEnvBool retrieves the environment variable specified by key and parses it
+// as a boolean. If the variable is not set, or holds a value strconv.ParseBool
+// cannot read, it returns defaultValue and logs the reason.
+//
+// Parameters:
+// - key: The name of the environment variable to retrieve.
+// - defaultValue: The value to return if the variable is unset or unparseable.
+// - log: A logger instance for logging warnings and errors.
+//
+// Returns:
+// - The parsed value of the environment variable, or defaultValue.
+func GetEnvBool(key string, defaultValue bool, log *logrus.Logger) bool {
+	value, exists := os.LookupEnv(key)
+	if !exists {
+		log.Warnf("%s environment variable not set, defaulting to %t", key, defaultValue)
+		return defaultValue
+	}
+
+	parsed, err := strconv.ParseBool(strings.TrimSpace(value))
+	if err != nil {
+		log.Errorf("%s environment variable is %q, which is not a boolean, defaulting to %t", key, value, defaultValue)
+		return defaultValue
+	}
+	return parsed
 }
 
 // Contains checks if a string is present in a slice of strings.
