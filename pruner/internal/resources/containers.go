@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/saidsef/pod-pruner/pruner/internal/metrics"
@@ -46,8 +45,8 @@ import (
 // - An error if the environment variable is not set, empty, or if there is an error
 // while listing the pods.
 func GetContainers(clientset kubernetes.Interface, namespace string) ([]ContainerInfo, error) {
-	statuses := strings.Split(os.Getenv("CONTAINER_STATUSES"), ",")
-	if len(statuses) == 0 || (len(statuses) == 1 && statuses[0] == "") {
+	statuses := utils.SplitAndTrim(os.Getenv("CONTAINER_STATUSES"))
+	if len(statuses) == 0 {
 		return nil, fmt.Errorf("CONTAINER_STATUSES environment variable is not set or empty")
 	}
 

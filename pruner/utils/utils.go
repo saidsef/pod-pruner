@@ -75,6 +75,27 @@ func GetEnvBool(key string, defaultValue bool, log *logrus.Logger) bool {
 	return parsed
 }
 
+// SplitAndTrim splits a comma-separated value, trims surrounding whitespace
+// from every entry and drops the entries that are left empty. An input that
+// holds nothing but separators and whitespace yields an empty slice, so the
+// caller can test for absence with len() rather than inspecting the elements.
+//
+// Parameters:
+// - value: The raw comma-separated value to split.
+//
+// Returns:
+// - The non-empty, whitespace-trimmed entries.
+func SplitAndTrim(value string) []string {
+	parts := strings.Split(value, ",")
+	trimmed := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part = strings.TrimSpace(part); part != "" {
+			trimmed = append(trimmed, part)
+		}
+	}
+	return trimmed
+}
+
 // Contains checks if a string is present in a slice of strings.
 //
 // Parameters:

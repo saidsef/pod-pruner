@@ -51,7 +51,7 @@ The application requires certain environment variables to be set:
 
 - `DRY_RUN`: Set to `"true"` to enable dry-run mode (default is `"true"`).
 - `RESOURCES`: A comma-separated list of Kubernetes resources (default is `"PODS"`)
-- `NAMESPACES`: A comma-separated list of namespaces to monitor for containers to prune.
+- `NAMESPACES`: A comma-separated list of namespaces to monitor for containers to prune. Required - there is no default, and an unset or empty value stops the application at startup rather than defaulting to every namespace in the cluster.
 - `CONTAINER_STATUSES`: A comma-separated list of container status reasons to filter by (e.g., `Error,ContainerStatusUnknown,Unknown,Completed`). Required - there is no default, and an unset or empty value is an error. See [Container statuses](#container-statuses) for the values that can match.
 - `JOB_STATUSES`: A comma-separated list of jobs statuses to filter by (default is `Complete`).
 
