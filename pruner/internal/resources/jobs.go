@@ -47,7 +47,7 @@ func GetJobs(clientset *kubernetes.Clientset, namespace string, log *logrus.Logg
 	defer cancel()
 
 	var allJobs []ContainerInfo
-	listOptions := metav1.ListOptions{Limit: 100}
+	listOptions := metav1.ListOptions{Limit: listPageSize}
 
 	for {
 		jobList, err := clientset.BatchV1().Jobs(namespace).List(ctx, listOptions)
