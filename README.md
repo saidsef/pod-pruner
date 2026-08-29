@@ -57,7 +57,7 @@ The application requires certain environment variables to be set:
 
 ### Container statuses
 
-Each entry is matched literally against a container's `state.waiting.reason` or `state.terminated.reason`. These are free-form strings in the Kubernetes API, set by the kubelet and the container runtime, so an entry that neither of them emits is ignored without error.
+Each entry is matched literally against a container's `state.waiting.reason` or `state.terminated.reason`. Init containers are matched too, but only where they failed - an init container that terminated with exit code 0 reports the reason `Completed` as part of a healthy pod starting up, so matching it would prune every pod that has one. These are free-form strings in the Kubernetes API, set by the kubelet and the container runtime, so an entry that neither of them emits is ignored without error.
 
 Waiting reasons, all set by the kubelet:
 
