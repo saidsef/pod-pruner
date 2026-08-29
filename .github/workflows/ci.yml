@@ -42,11 +42,14 @@ jobs:
       uses: actions/setup-go@v5
       with:
         go-version: ${{ matrix.go }}
-    - name: Codecov Test Run
-      working-directory: pruner/
+    - name: Verify go.mod is tidy
       run: |
-        go get
-        go test -v -race -coverprofile=coverage.txt -covermode=atomic
+        go mod download
+        go mod tidy -diff
+    - name: Vet
+      run: go vet ./...
+    - name: Codecov Test Run
+      run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
     - name: Codecov Test Upload
       uses: codecov/codecov-action@v4
 

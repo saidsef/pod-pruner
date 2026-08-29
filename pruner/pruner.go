@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/saidsef/pod-pruner/pruner/internal/auth"
-	_ "github.com/saidsef/pod-pruner/pruner/internal/metrics"
+	"github.com/saidsef/pod-pruner/pruner/internal/metrics"
 	"github.com/saidsef/pod-pruner/pruner/internal/resources"
 	"github.com/saidsef/pod-pruner/pruner/utils"
 	"github.com/sirupsen/logrus"
@@ -44,6 +44,8 @@ func main() {
 		utils.LogWithFields(logrus.FatalLevel, []string{}, "NAMESPACES environment variable is not set or empty, refusing to run against every namespace")
 	}
 	RESOURCES := utils.SplitAndTrim(utils.GetEnv("RESOURCES", "PODS", log))
+
+	metrics.StartMetricsServer(log)
 
 	// Create a new Kubernetes client manager.
 	k8sManager := auth.NewKubernetesClientManager(log)
