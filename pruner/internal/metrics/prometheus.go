@@ -19,7 +19,6 @@ package metrics
 import (
 	"fmt"
 	"net/http"
-	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -57,18 +56,13 @@ var (
 		},
 		[]string{"namespace", "state"},
 	)
-
-	once sync.Once
 )
 
-// init registers the defined metrics with Prometheus.
+// init registers the defined metrics with Prometheus. Starting the server is
+// left to the caller, so importing this package does not bind a port.
 func init() {
-	once.Do(func() {
-		logger := utils.Logger()
-		utils.LogWithFields(logrus.InfoLevel, []string{}, "registering prometheus metrics count vectors")
-		prometheus.MustRegister(PodsPruned, ContainersPruned, JobsPruned)
-		StartMetricsServer(logger)
-	})
+	utils.LogWithFields(logrus.InfoLevel, []string{}, "registering prometheus metrics count vectors")
+	prometheus.MustRegister(PodsPruned, ContainersPruned, JobsPruned)
 }
 
 // StartMetricsServer starts the metrics server and adds a handler for the /metrics endpoint.
