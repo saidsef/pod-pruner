@@ -31,6 +31,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+// listPageSize caps how many objects a single List call returns. Without a
+// limit the API server sends the whole collection in one response and leaves
+// the continue token empty, so the paging below never runs.
+const listPageSize = 100
+
 // GetContainers retrieves a list of container names from pods in the specified namespace
 // that are in the states defined by the CONTAINER_STATUSES environment variable.
 // It returns a slice of container names in the format "namespace/podName: containerName".
@@ -55,12 +60,10 @@ func GetContainers(clientset *kubernetes.Clientset, namespace string) ([]Contain
 	defer cancel()
 
 	var containers []ContainerInfo
-	var continueToken string
+	listOptions := metav1.ListOptions{Limit: listPageSize}
 
 	for {
-		podList, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
-			Continue: continueToken,
-		})
+		podList, err := clientset.CoreV1().Pods(namespace).List(ctx, listOptions)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list pods in namespace '%s': %w", namespace, err)
 		}
@@ -74,7 +77,7 @@ func GetContainers(clientset *kubernetes.Clientset, namespace string) ([]Contain
 		if podList.Continue == "" {
 			break
 		}
-		continueToken = podList.Continue
+		listOptions.Continue = podList.Continue
 	}
 
 	return containers, nil
