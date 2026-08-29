@@ -25,6 +25,12 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+const (
+	// clientQPS and clientBurst replace the client-go defaults of 5 and 10.
+	clientQPS   = 20.0
+	clientBurst = 30
+)
+
 // KubernetesClientManager manages the Kubernetes client creation and caching.
 type KubernetesClientManager struct {
 	clientset *kubernetes.Clientset
@@ -61,6 +67,11 @@ func (m *KubernetesClientManager) GetKubernetesClient() (*kubernetes.Clientset, 
 			m.log.Error(err)
 			return
 		}
+
+		// client-go defaults to 5 queries a second, which a namespace holding a
+		// few thousand finished jobs cannot drain inside a delete's timeout.
+		config.QPS = clientQPS
+		config.Burst = clientBurst
 
 		m.clientset, err = kubernetes.NewForConfig(config)
 		if err != nil {
