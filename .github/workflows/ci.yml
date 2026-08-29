@@ -8,6 +8,7 @@ on:
       - "go.mod"
       - "go.sum"
       - "Dockerfile"
+      - "deployment/**"
       - ".github/workflows/ci.yml"
   pull_request:
     branches:
@@ -17,6 +18,7 @@ on:
       - "go.mod"
       - "go.sum"
       - "Dockerfile"
+      - "deployment/**"
       - ".github/workflows/ci.yml"
   workflow_dispatch:
 
