@@ -40,6 +40,7 @@ spec:
                       - arm64
       containers:
         - env:
+            # Remove NAMESPACES to sweep every namespace in the cluster.
             - name: NAMESPACES
               value: 'argocd'
             - name: CONTAINER_STATUSES

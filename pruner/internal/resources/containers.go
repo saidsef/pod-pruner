@@ -43,7 +43,7 @@ const listPageSize = 100
 //
 // Parameters:
 // - clientset: A Kubernetes client interface used to interact with the Kubernetes API.
-// - namespace: The namespace from which to retrieve the pods.
+// - namespace: The namespace from which to retrieve the pods. An empty namespace means every namespace.
 //
 // Returns:
 // - A slice of ContainerInfo containing the names of the containers in the specified states.
@@ -64,7 +64,7 @@ func GetContainers(clientset kubernetes.Interface, namespace string) ([]Containe
 	for {
 		podList, err := clientset.CoreV1().Pods(namespace).List(ctx, listOptions)
 		if err != nil {
-			return nil, fmt.Errorf("failed to list pods in namespace '%s': %w", namespace, err)
+			return nil, fmt.Errorf("failed to list pods in namespace '%s': %w", utils.NamespaceLabel(namespace), err)
 		}
 
 		for _, pod := range podList.Items {

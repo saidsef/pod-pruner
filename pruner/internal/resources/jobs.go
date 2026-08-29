@@ -37,7 +37,7 @@ const deleteConcurrency = 10
 //
 // Parameters:
 // - clientset: A Kubernetes client interface to interact with the Kubernetes API.
-// - namespace: The namespace from which to retrieve the jobs.
+// - namespace: The namespace from which to retrieve the jobs. An empty namespace means every namespace.
 // - log: A logger to log messages.
 //
 // Returns:

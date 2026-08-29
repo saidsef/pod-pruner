@@ -116,3 +116,22 @@ func TestGetEnvDuration(t *testing.T) {
 		})
 	}
 }
+
+func TestNamespaceLabel(t *testing.T) {
+	cases := []struct {
+		name      string
+		namespace string
+		want      string
+	}{
+		{"named namespace", "argocd", "argocd"},
+		{"empty is every namespace", "", "*"},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := NamespaceLabel(c.namespace); got != c.want {
+				t.Errorf("NamespaceLabel(%q) = %q, want %q", c.namespace, got, c.want)
+			}
+		})
+	}
+}
