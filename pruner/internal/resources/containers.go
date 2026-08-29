@@ -85,6 +85,8 @@ func GetContainers(clientset kubernetes.Interface, namespace string) ([]Containe
 // pruneCandidate reports whether any container in the pod is in one of the
 // given states, and describes the pod once if so. Deletion removes the whole
 // pod, so a pod with several matching containers still yields one candidate.
+// Init containers count only where they failed, since a successful one is
+// part of a healthy pod starting up.
 //
 // Parameters:
 // - pod: The pod to inspect.
@@ -104,7 +106,34 @@ func pruneCandidate(pod v1.Pod, statuses []string) (ContainerInfo, bool) {
 			Status:    matchedReason(containerStatus),
 		}, true
 	}
+
+	for _, containerStatus := range pod.Status.InitContainerStatuses {
+		if succeeded(containerStatus) || !isContainerInState(containerStatus, statuses) {
+			continue
+		}
+		return ContainerInfo{
+			Namespace: pod.Namespace,
+			PodName:   pod.Name,
+			Status:    matchedReason(containerStatus),
+		}, true
+	}
+
 	return ContainerInfo{}, false
+}
+
+// succeeded reports whether a container ran to completion without error. An
+// init container that has done its job terminates with reason Completed, which
+// is a reason operators routinely list, so matching on it alone would make
+// every healthy pod that has an init container a prune candidate.
+//
+// Parameters:
+// - containerStatus: The status of the container to check.
+//
+// Returns:
+// - A boolean reporting whether the container terminated with exit code zero.
+func succeeded(containerStatus v1.ContainerStatus) bool {
+	terminated := containerStatus.State.Terminated
+	return terminated != nil && terminated.ExitCode == 0
 }
 
 // matchedReason returns the waiting or terminated reason carried by a container
