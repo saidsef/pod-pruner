@@ -21,7 +21,7 @@ The pruner sweeps once at start-up and once every `INTERVAL` after that. [`prune
 
 Sweeps never overlap. A sweep that runs past `INTERVAL` delays the next one.
 
-If listing pods in a namespace fails, the pruner skips the rest of that namespace, its Jobs included, until the next sweep.
+If listing pods in a namespace fails, the pruner logs the error and still handles the Jobs in that namespace.
 
 ## Pod selection
 

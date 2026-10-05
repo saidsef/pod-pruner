@@ -79,17 +79,19 @@ func main() {
 // sweep walks every namespace once, pruning the resource types that are enabled.
 //
 // Parameters:
-// - clientset: A pointer to a Kubernetes Clientset for interacting with the Kubernetes API.
+// - clientset: A Kubernetes client interface used to interact with the Kubernetes API.
 // - namespaces: The namespaces to inspect. A single empty entry means every namespace.
 // - resourceTypes: The resource types to prune, such as PODS and JOBS.
 // - dryRun: Whether to log the resources instead of deleting them.
 // - log: A pointer to a logrus.Logger instance for logging purposes.
-func sweep(clientset *kubernetes.Clientset, namespaces, resourceTypes []string, dryRun bool, log *logrus.Logger) {
+func sweep(clientset kubernetes.Interface, namespaces, resourceTypes []string, dryRun bool, log *logrus.Logger) {
 	for _, namespace := range namespaces {
 		// Check if "PODS" is included in the resources to prune.
 		if utils.Contains(resourceTypes, "PODS") {
 			// Fetch containers in the current namespace.
 			containers, err := resources.GetContainers(clientset, namespace)
+			// A pod failure falls through rather than continuing, so the
+			// namespace still has its Jobs pruned.
 			if err != nil {
 				utils.LogWithFields(
 					logrus.ErrorLevel,
@@ -97,11 +99,10 @@ func sweep(clientset *kubernetes.Clientset, namespaces, resourceTypes []string, 
 					"Error fetching containers",
 					err,
 				)
-				continue
+			} else {
+				// Handle pruning logic for containers.
+				handlePruning("containers", containers, dryRun, log, clientset)
 			}
-
-			// Handle pruning logic for containers.
-			handlePruning("containers", containers, dryRun, log, clientset)
 		}
 
 		// Check if "JOBS" is included in the resources to prune.
@@ -115,11 +116,10 @@ func sweep(clientset *kubernetes.Clientset, namespaces, resourceTypes []string, 
 					"Error fetching jobs",
 					err,
 				)
-				continue
+			} else {
+				// Handle pruning logic for jobs.
+				handlePruning("jobs", jobs, dryRun, log, clientset)
 			}
-
-			// Handle pruning logic for jobs.
-			handlePruning("jobs", jobs, dryRun, log, clientset)
 		}
 	}
 }
@@ -133,8 +133,8 @@ func sweep(clientset *kubernetes.Clientset, namespaces, resourceTypes []string, 
 // - items: A slice of ContainerInfo representing the resource identifiers to be pruned.
 // - dryRun: Whether to log the resources instead of deleting them.
 // - log: A pointer to a logrus.Logger instance for logging purposes.
-// - clientset: A pointer to a Kubernetes Clientset for interacting with the Kubernetes API.
-func handlePruning(resourceType string, items []resources.ContainerInfo, dryRun bool, log *logrus.Logger, clientset *kubernetes.Clientset) {
+// - clientset: A Kubernetes client interface used to interact with the Kubernetes API.
+func handlePruning(resourceType string, items []resources.ContainerInfo, dryRun bool, log *logrus.Logger, clientset kubernetes.Interface) {
 	if len(items) == 0 {
 		utils.LogWithMap(
 			logrus.InfoLevel,
