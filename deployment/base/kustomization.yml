@@ -7,3 +7,4 @@ resources:
 - clusterrole.yaml
 - deployment.yaml
 - serviceaccount.yaml
+- ns.yaml

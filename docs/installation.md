@@ -2,27 +2,27 @@
 
 ## Requirements
 
-- A Kubernetes cluster, and permission to create a ClusterRole and a ClusterRoleBinding in it
+- A Kubernetes cluster, and permission to create a Namespace, a ClusterRole and a ClusterRoleBinding in it
 - `kubectl` with kustomize support
 - Go at the version `go.mod` sets, to build from source
 
 ## Kubernetes
 
-The manifests live under [`deployment/`](https://github.com/saidsef/pod-pruner/tree/main/deployment). Clone the repository, create the namespace and apply them with kustomize:
+The manifests live under [`deployment/`](https://github.com/saidsef/pod-pruner/tree/main/deployment). Clone the repository and apply them with kustomize:
 
 ```sh
 git clone https://github.com/saidsef/pod-pruner.git
 cd pod-pruner
-kubectl create namespace pod-pruner
 kubectl apply -k deployment/
 ```
 
-`deployment/kustomization.yml` puts every object in the `pod-pruner` namespace but does not create it, so create the namespace before you apply.
+`deployment/kustomization.yml` puts every object in the `pod-pruner` namespace, and the base creates that namespace. A different `namespace` value in that file renames the Namespace object to match.
 
 The base creates these objects, all named `pod-pruner`:
 
 | Kind | Purpose |
 |------|---------|
+| Namespace | Holds the ServiceAccount and the Deployment |
 | ServiceAccount | The identity the pruner runs as |
 | ClusterRole | `get`, `list` and `delete` on pods and on `batch` Jobs |
 | ClusterRoleBinding | Grants the ClusterRole to the ServiceAccount across the cluster |
