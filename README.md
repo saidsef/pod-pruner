@@ -21,7 +21,6 @@ Pod Pruner runs inside a Kubernetes cluster and deletes pods whose containers ar
 ```sh
 git clone https://github.com/saidsef/pod-pruner.git
 cd pod-pruner
-kubectl create namespace pod-pruner
 kubectl apply -k deployment/
 kubectl logs -n pod-pruner deploy/pod-pruner
 ```
